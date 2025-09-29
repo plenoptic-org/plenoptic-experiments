@@ -33,7 +33,7 @@ for i, c, s, l, r, it, m, h, lr in iters:
     outdir = f"img-{i}_ctf-{c}_seed-{s}_search-{l}_red-{r}_iter-{it}_eval-{m}_history-{h}_lr-{lr}"
     if m is not None:
         m = int(m * it)
-    cmd = (f"{prepend} python ~/plenoptic_test/ps_lbfgs/synthesize.py -i {i} -s {s} -d {device} "
+    cmd = (f"{prepend} python ~/plenoptic_experiments/ps_lbfgs/synthesize.py -i {i} -s {s} -d {device} "
            f"--max_iter {it} --max_eval {m} --line_search_fn {l} --synth_max_iter {synth_max_iter} "
            f"--store_progress {store_progress} -o {base_out / outdir} --lr {lr} --history_size {h}")
     if c:
