@@ -66,3 +66,5 @@ venv
 
 disbatch_out/
 *svg
+
+disbatch*txt
