@@ -2,9 +2,19 @@
 
 Miscellaneous scripts to better understand plenoptic, to help the development of the library.
 
-These scripts may be helpful to others, but are primarily intended for internal use. As such, they've been developed for use on the Flatiron Institute's SLURM cluster, and make use of Flatiron's [disBatch](https://github.com/flatironinstitute/disBatch) tool to submit many jobs at once.
+These scripts may be helpful to others, but are primarily intended for internal use. As such, they've been developed for use on the Flatiron Institute's SLURM cluster, and make use of Flatiron's [disBatch](https://github.com/flatironinstitute/disBatch) tool to submit many jobs at once. Similarly output paths are hard-coded in some of the scripts.
 
 They are also written at a single point of time and not maintained, so they are not future-proof. I have attempted to include the specific commits when they are run.
+
+## Some Notes About Timing
+
+Several of these scripts are used to time / benchmark plenoptic code.
+
+- In general, I've found [pyspy](https://github.com/benfred/py-spy), a sampling profiler, to be the best way of understanding "where is my code spending its time".
+- When comparing performance, **make sure to use the same hardware for each run**. There's a roughly 2x performance difference between Flatiron's rome nodes and my workstation, with the genoa nodes having close-to-workstation performance.
+    - Thus, I recommend using the genoa nodes for benchmarking cpu-only code and the A100 GPUs for benchmarking GPU code.
+- Probably obvious, but you'd be surprised how often I forget: don't run something irrelevant on the same machine where you're benchmarking code.
+- When running things in parallel, be careful about threading. In practice, setting the environmental variable `OMP_NUM_THREADS=1` (for OpenMP) and setting `torch.set_num_threads(1)` (or some other relatively small number) will improve performance, especially when using LBFGS.
 
 ## Structure
 
