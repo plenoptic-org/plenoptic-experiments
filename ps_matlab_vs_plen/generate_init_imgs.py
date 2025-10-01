@@ -5,7 +5,7 @@ import torch
 import plenoptic as po
 import imageio.v3 as iio
 
-OUT_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed/init_images")
+OUT_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen/init_images")
 
 img = po.data.einstein()
 for i in range(10):

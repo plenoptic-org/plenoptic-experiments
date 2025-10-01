@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 from plenoptic.data.fetch import fetch_data
 IMG_DIR = fetch_data("portilla_simoncelli_images.tar.gz")
 
-INIT_IMG_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed/init_images")
-OUT_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed/plenoptic_results_weighted")
+INIT_IMG_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen/init_images")
+OUT_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen/plenoptic_results_weighted")
 OUT_DIR.mkdir(exist_ok=True)
 
 df = pd.read_csv("results/all_loss.csv")

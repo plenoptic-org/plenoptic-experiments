@@ -4,7 +4,7 @@ import sys
 import itertools
 from pathlib import Path
 
-base_out = Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed/matlab_results")
+base_out = Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen/matlab_results")
 
 synth_iters = [400, 800]
 seeds = list(range(10))

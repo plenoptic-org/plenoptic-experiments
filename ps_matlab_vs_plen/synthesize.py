@@ -37,7 +37,7 @@ def main(
     img = img.to(device).to(torch.float64)
     model = po.simul.PortillaSimoncelli(img.shape[-2:], n_scales=n_scales)
     model.to(device)
-    INIT_PATH = pathlib.Path('/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed/init_images/')
+    INIT_PATH = pathlib.Path('/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen/init_images/')
     init_img = po.load_images(INIT_PATH / f"{init_img}.png")
     loss = po.tools.optim.l2_norm
     if weighted:

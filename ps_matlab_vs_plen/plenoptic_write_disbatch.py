@@ -4,7 +4,7 @@ import sys
 import itertools
 from pathlib import Path
 
-base_out = Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed/plenoptic_results_weighted")
+base_out = Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen/plenoptic_results_weighted")
 
 seeds = list(range(10))
 figs = ["fig4a", "fig16b"]

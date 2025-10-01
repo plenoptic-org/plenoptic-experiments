@@ -5,7 +5,7 @@ import seaborn as sns
 import seaborn.objects as so
 import matplotlib as mpl
 
-SYNTH_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_speed")
+SYNTH_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_matlab_vs_plen")
 OUT_DIR = pathlib.Path("results")
 OUT_DIR.mkdir(exist_ok=True)
 
