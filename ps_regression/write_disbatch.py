@@ -7,14 +7,17 @@ new_dir = pathlib.Path(sys.argv[2])
 out_dir = new_dir.parent / "figs"
 out_dir.mkdir(exist_ok=True)
 
-commands = []
-for f in old_dir.glob("ps*pt"):
-    cmd = f"python plot.py {f} {out_dir / ('old_' + f.with_suffix('.svg').name)}"
-    commands.append(cmd)
+prepend = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic"
 
 commands = []
+for f in old_dir.glob("ps*pt"):
+    out_file = out_dir / ('old_' + f.with_suffix('.svg').name)
+    cmd = f"{prepend} python plot.py {f} {out_file} &> {out_file.with_suffix('.log')}"
+    commands.append(cmd)
+
 for f in new_dir.glob("ps*pt"):
-    cmd = f"python plot.py {f} {out_dir / ('new_' + f.with_suffix('.svg').name)}"
+    out_file = out_dir / ('new_' + f.with_suffix('.svg').name)
+    cmd = f"{prepend} python plot.py {f} {out_file} &> {out_file.with_suffix('.log')}"
     commands.append(cmd)
 
 with open("disbatch.txt", "w") as f:

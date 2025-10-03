@@ -68,3 +68,6 @@ disbatch_out/
 *svg
 
 disbatch*txt
+disbatch*log
+disbatch*sh
+disbatch*out
