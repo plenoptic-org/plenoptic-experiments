@@ -6,6 +6,10 @@ These scripts may be helpful to others, but are primarily intended for internal 
 
 They are also written at a single point of time and not maintained, so they are not future-proof. I have attempted to include the specific commits when they are run.
 
+## Requirements
+
+In addition to `plenoptic` and its dependencies, these scripts make use of `pandas` and `seaborn`.
+
 ## Some Notes About Timing
 
 Several of these scripts are used to time / benchmark plenoptic code.
@@ -46,3 +50,5 @@ Experiments live in separate directories and are independent, but often share se
 - `ps_matlab/`: scripts to create Portilla-Simoncelli texture metamers using the [original matlab code](https://github.com/LabForComputationalVision/textureSynth) and visualize them using plenoptic. Used plenoptic commit [`aeac5144f85f0bbb1785149ea809b4ed0f7777a2`](https://github.com/plenoptic-org/plenoptic/tree/aeac5144f85f0bbb1785149ea809b4ed0f7777a2).
 - `ps_matlab_vs_plen/`: scripts for running the matlab and plenoptic Portilla-Simoncelli texture metamer synthesis, comparing the quality as a function of synthesis time. See [issue #365](https://github.com/plenoptic-org/plenoptic/issues/365) for more details. Used plenoptic commit [`be60c06c9ef68c70fc363c0fef89e610e7e415ac`](https://github.com/plenoptic-org/plenoptic/tree/be60c06c9ef68c70fc363c0fef89e610e7e415ac) (importantly, involving speed-ups from the `ps_speed` branch).
 - `ps_noise/`: scripts for running plenoptic's `PortillaSimoncelli` metamer synthesis with initial images that have a very different range. See [issue #365](https://github.com/plenoptic-org/plenoptic/issues/365) for more details. Used plenoptic commit [`be60c06c9ef68c70fc363c0fef89e610e7e415ac`](https://github.com/plenoptic-org/plenoptic/tree/be60c06c9ef68c70fc363c0fef89e610e7e415ac) (importantly, involving speed-ups from the `ps_speed` branch).
+- `ps_speed_pr/`: scripts for investigating the speed-ups from the `ps_speed` branch. Uses commits [`3136952cf4446d6c1c6710735dd2a1338535860`](https://github.com/plenoptic-org/plenoptic/tree/3136952cf4446d6c1c6710735dd2a1338535860) (`main` branch) and [`0a3b937044cc1d13540508b3c0d4cd7a5a4dbb3e`](https://github.com/plenoptic-org/plenoptic/tree/0a3b937044cc1d13540508b3c0d4cd7a5a4dbb3e) (`ps_speed` branch).
+- `ps_regression/`: scripts for plotting the old and new versions of the PortillaSimoncelli regression tests, using the `visualize_ps_regression` function from `plenoptic/tests/utils.py`

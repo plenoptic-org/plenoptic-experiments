@@ -11,8 +11,12 @@ po_dir = pathlib.Path(po.__file__).parent.parent.parent
 out = subprocess.run(["git", "branch", "--show-current"], cwd=po_dir,
                      capture_output=True)
 branch_name = out.stdout.decode().strip()
+out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=po_dir,
+                     capture_output=True)
+commit_hash = out.stdout.decode().strip()
 print(f"plenoptic location: {po_dir}")
 print(f"git branch: {branch_name}")
+print(f"git commit: {commit_hash}")
 
 img_dir = fetch_data("portilla_simoncelli_images.tar.gz")
 torch.set_num_threads(1)
@@ -24,10 +28,10 @@ if len(sys.argv) > 1:
 device = torch.device(device)
 print(f"Device: {device.type}")
 
-duration_long = 10
-synth_n = 1
-synth_loop_before_reset = 1
-each_synth = 1
+duration_long = 10000
+synth_n = 10
+synth_loop_before_reset = 10
+each_synth = 10
 synth_kwargs = {"stop_criterion": 1e-10}
 timing = {}
 
@@ -79,6 +83,25 @@ for split_complex in [True, False]:
     timing[f"pyramid_convert_tensor_to_pyr_split-{split_complex}"] = np.asarray(times)
     print(f"mean: {np.mean(times)}, stdev: {np.std(times)}")
 
+print("ps compute pyr coeffs")
+times = []
+for i in range(duration_long):
+    start = time.time()
+    ps._compute_pyr_coeffs(img)
+    times.append(time.time() - start)
+timing["ps_compute_pyr_coeffs"] = np.asarray(times)
+print(f"mean: {np.mean(times)}, stdev: {np.std(times)}")
+
+pyr_dict = ps._compute_pyr_coeffs(img)[0]
+print("ps reconstruct lowpass")
+times = []
+for i in range(duration_long):
+    start = time.time()
+    ps._reconstruct_lowpass_at_each_scale(pyr_dict)
+    times.append(time.time() - start)
+timing["ps_reconstruct_lowpass"] = np.asarray(times)
+print(f"mean: {np.mean(times)}, stdev: {np.std(times)}")
+
 print("ps forward")
 times = []
 for i in range(duration_long):
@@ -100,7 +123,7 @@ for i in range(synth_n):
         met.synthesize(each_synth, **synth_kwargs)
         t.append(time.time() - start)
     times.append(t)
-timing["metamer_adam_synth-10"] = np.asarray(times)
+timing[f"metamer_adam_synth-{each_synth}"] = np.asarray(times)
 print(f"mean: {np.mean(times)}, stdev: {np.std(times)}")
 
 weights = ps.convert_to_dict(torch.ones_like(ps(img)))
@@ -124,7 +147,7 @@ for history_size in [3, 100, 300]:
             met_lbfgs.synthesize(each_synth, **synth_kwargs)
             t.append(time.time() - start)
         times.append(t)
-    timing[f"metamer_lbfgs_synth-10_history-{history_size}"] = np.asarray(times)
+    timing[f"metamer_lbfgs_synth-{each_synth}_history-{history_size}"] = np.asarray(times)
     print(f"mean: {np.mean(times)}, stdev: {np.std(times)}")
 
 np.savez(f"ps_speed_timing_{device.type}_{branch_name}", **timing)
