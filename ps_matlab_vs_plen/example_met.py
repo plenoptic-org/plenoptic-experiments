@@ -12,7 +12,6 @@ import torch
 from plenoptic.data.fetch import fetch_data
 IMG_PATH = fetch_data("portilla_simoncelli_images.tar.gz")
 img = po.load_images(IMG_PATH / "fig4a.jpg").to(torch.float64).to(device)
-img = po.data.curie().to(torch.float64).to(device)
 model = po.simul.PortillaSimoncelli(img.shape[-2:])
 model.to(device)
 po.tools.set_seed(seed)
