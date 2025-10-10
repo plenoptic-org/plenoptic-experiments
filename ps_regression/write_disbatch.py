@@ -15,10 +15,10 @@ for f in old_dir.glob("ps*pt"):
     cmd = f"{prepend} python plot.py {f} {out_file} &> {out_file.with_suffix('.log')}"
     commands.append(cmd)
 
-# for f in new_dir.glob("ps*pt"):
-#     out_file = out_dir / ('new_' + f.with_suffix('.svg').name)
-#     cmd = f"{prepend} python plot.py {f} {out_file} &> {out_file.with_suffix('.log')}"
-#     commands.append(cmd)
+for f in new_dir.glob("ps*pt"):
+    out_file = out_dir / ('new_' + f.with_suffix('.svg').name)
+    cmd = f"{prepend} python plot.py {f} {out_file} &> {out_file.with_suffix('.log')}"
+    commands.append(cmd)
 
 with open("disbatch.txt", "w") as f:
     f.write("\n".join(commands))
