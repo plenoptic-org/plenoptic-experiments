@@ -38,9 +38,10 @@ except FileNotFoundError:
 
 for n, g in df.groupby("func_type"):
     f = sns.catplot(
-        data=g, x="time_sec", y="device", hue="branch", kind="strip",
-        height=2, aspect=4, orient="h", row="function", log_scale=True
+        data=g, y="time_sec", x="device", hue="branch", kind="strip",
+        height=8, aspect=1/4, orient="v", col="function", log_scale=True
     )
+    f.set_titles("{col_name}")
     f.fig.suptitle(n, fontsize='xx-large', y=1.1)
     save_n = n.lower().split(' ')[0]
     f.savefig(f"time_{save_n}.png", bbox_inches="tight")
