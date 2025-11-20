@@ -44,14 +44,14 @@ def main(
     weights = model.convert_to_tensor(weights)
     nan_mask = model(img).isnan()
 
-    def loss(x, y):  # numpydoc ignore=GL08
+    def loss(x, y):
         x[nan_mask] = 0
         y[nan_mask] = 0
         return po.tools.l2_norm(weights * x, weights * y)
 
     if coarse_to_fine:
         def loss(x, y):
-            x[x.isnan()] = 0
+            x[y.isnan()] = 0
             y[y.isnan()] = 0
             return po.tools.l2_norm(x, y)
         met = po.synth.MetamerCTF(img, model, loss_function=loss,)
@@ -65,6 +65,9 @@ def main(
     met.setup(optimizer=torch.optim.LBFGS, optimizer_kwargs=opt_kwargs)
     start = time.time()
     met.synthesize(max_iter=synth_max_iter, **synth_kwargs)
+    # then ctf synth hasn't finished moving through the scales
+    if coarse_to_fine and met.scales != ("all",):
+        met.synthesize(max_iter=synth_max_iter, **synth_kwargs)
     stop = time.time()
     met.save(output_dir / "metamer.pt")
     width_ratios = {"plot_representation_error": 3.1}
