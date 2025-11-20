@@ -32,29 +32,29 @@ def main(
     model = po.simul.PortillaSimoncelli(img.shape[-2:], spatial_corr_width=7)
     model.to(device)
     po.tools.set_seed(seed)
-    weights = model.convert_to_dict(torch.ones_like(model(image)))
+    weights = model.convert_to_dict(torch.ones_like(model(img)))
     if "pixel_statistics" in weights:
         # reweight the pixel min/max and the variance of the highpass residuals, since
         # they're weird.
-        weights["pixel_statistics"][..., -2:] = minmax_weight
+        weights["pixel_statistics"][..., -2:] = 0
     k = "var_highpass_residual"
     if k in weights:
-        weights[k] = highpass_weight * torch.ones_like(weights[k])
+        weights[k] = 100 * torch.ones_like(weights[k])
     weights = model.convert_to_tensor(weights)
     nan_mask = model(img).isnan()
 
-    def loss(x: Tensor, y: Tensor) -> Tensor:  # numpydoc ignore=GL08
+    def loss(x, y):  # numpydoc ignore=GL08
         x[nan_mask] = 0
         y[nan_mask] = 0
-        return l2_norm(weights * x, weights * y)
+        return po.tools.l2_norm(weights * x, weights * y)
 
-    met = po.synth.Metamer(img, model, loss_function=los,)
+    met = po.synth.Metamer(img, model, loss_function=loss,)
     opt_kwargs = {"max_iter": max_iter, "max_eval": max_eval,
                   "history_size": history_size, "line_search_fn": line_search_fn,
                   "lr": lr}
     met.setup(optimizer=torch.optim.LBFGS, optimizer_kwargs=opt_kwargs)
     start = time.time()
-    met.synthesize(max_iter=synth_max_iter, **synth_kwargs)
+    met.synthesize(max_iter=synth_max_iter)
     stop = time.time()
     met.save(output_dir / "metamer.pt")
     width_ratios = {"plot_representation_error": 3.1}
@@ -62,8 +62,8 @@ def main(
     fig.savefig(output_dir / f"metamer.svg")
     plt.close(fig)
     iio.imwrite(output_dir / "metamer.png", po.tools.data.convert_float_to_int(po.to_numpy(met.metamer.clip(0, 1)).squeeze()))
-    data = {"coarse_to_fine": coarse_to_fine, "seed": seed, "search_func": line_search_fn,
-            "init_reduced": init_reduced, "LBFGS_max_iter": max_iter, "LBFGS_max_eval": max_eval,
+    data = {"seed": seed, "search_func": line_search_fn,
+            "LBFGS_max_iter": max_iter, "LBFGS_max_eval": max_eval,
             "LBFGS_history_size": history_size, "learning_rate": lr, "synth_iter": len(met.losses),
             "loss": met.losses[-1].item(), "synth_duration": stop-start}
     df = pd.DataFrame(data, index=[0])

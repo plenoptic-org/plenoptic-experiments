@@ -28,7 +28,7 @@ for s, l, it, m, h, lr in iters:
     outdir = f"seed-{s}_search-{l}_iter-{it}_eval-{m}_history-{h}_lr-{lr}"
     if m is not None:
         m = int(m * it)
-    cmd = (f"{prepend} python ~/plenoptic_experiments/ps_lbfgs/synthesize.py -s {s} -d {device} "
+    cmd = (f"{prepend} python ~/plenoptic_experiments/ps_checkerboard/synthesize.py -s {s} -d {device} "
            f"--max_iter {it} --max_eval {m} --line_search_fn {l} --synth_max_iter {synth_max_iter} "
            f"-o {base_out / outdir} --lr {lr} --history_size {h}")
     cmd = f"({cmd}) &> {base_out / outdir}.log"
