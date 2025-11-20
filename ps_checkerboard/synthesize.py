@@ -18,6 +18,7 @@ def main(
     device: str | int = 0,
     synth_max_iter: int = 200,
     lr: float = 0.01,
+    coarse_to_fine: int = 0,
     output_dir: str = "."
 ):
     output_dir = pathlib.Path(output_dir)
@@ -48,13 +49,22 @@ def main(
         y[nan_mask] = 0
         return po.tools.l2_norm(weights * x, weights * y)
 
-    met = po.synth.Metamer(img, model, loss_function=loss,)
+    if coarse_to_fine:
+        def loss(x, y):
+            x[x.isnan()] = 0
+            y[y.isnan()] = 0
+            return po.tools.l2_norm(x, y)
+        met = po.synth.MetamerCTF(img, model, loss_function=loss,)
+        synth_kwargs = {"ctf_iters_to_check": coarse_to_fine}
+    else:
+        met = po.synth.Metamer(img, model, loss_function=loss,)
+        synth_kwargs = {}
     opt_kwargs = {"max_iter": max_iter, "max_eval": max_eval,
                   "history_size": history_size, "line_search_fn": line_search_fn,
                   "lr": lr}
     met.setup(optimizer=torch.optim.LBFGS, optimizer_kwargs=opt_kwargs)
     start = time.time()
-    met.synthesize(max_iter=synth_max_iter)
+    met.synthesize(max_iter=synth_max_iter, **synth_kwargs)
     stop = time.time()
     met.save(output_dir / "metamer.pt")
     width_ratios = {"plot_representation_error": 3.1}
@@ -65,7 +75,8 @@ def main(
     data = {"seed": seed, "search_func": line_search_fn,
             "LBFGS_max_iter": max_iter, "LBFGS_max_eval": max_eval,
             "LBFGS_history_size": history_size, "learning_rate": lr, "synth_iter": len(met.losses),
-            "loss": met.losses[-1].item(), "synth_duration": stop-start}
+            "loss": met.losses[-1].item(), "synth_duration": stop-start,
+            "coarse_to_fine": coarse_to_fine}
     df = pd.DataFrame(data, index=[0])
     df.to_csv(output_dir / "loss.csv", index=False)
     torch.save(met.model(met.metamer), output_dir / "rep.pt")
@@ -84,6 +95,7 @@ if __name__ == "__main__":
     parser.add_argument("--synth_max_iter", default=200, type=int)
     parser.add_argument("--lr", default=.01, type=float)
     parser.add_argument("--output_dir", '-o', default=".")
+    parser.add_argument("--coarse_to_fine", type=int, default=0)
     args = vars(parser.parse_args())
     try:
         args["max_eval"] = int(args["max_eval"])

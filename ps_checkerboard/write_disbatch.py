@@ -11,12 +11,13 @@ seed= [0]
 line_search_fn= ["strong_wolfe"]
 max_iter= [5, 10, 20, 40]
 max_eval = [.5, 1, None]
-history_size= [30, 100, 130, 200]
-lrate = [.1, .3, 1, 3, 10]
+history_size= [100]
+lrate = [1]
+coarse_to_fine = [0, 5, 10, 30, 50]
 
 prepend = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic OMP_NUM_THREADS=1"
 
-iters = itertools.product(seed, line_search_fn, max_iter, max_eval, history_size, lrate)
+iters = itertools.product(seed, line_search_fn, max_iter, max_eval, history_size, lrate, coarse_to_fine)
 
 if len(sys.argv) > 1:
     fn = sys.argv[1]
@@ -24,13 +25,13 @@ else:
     fn = "disbatch.txt"
 
 commands = []
-for s, l, it, m, h, lr in iters:
-    outdir = f"seed-{s}_search-{l}_iter-{it}_eval-{m}_history-{h}_lr-{lr}"
+for s, l, it, m, h, lr, ctf in iters:
+    outdir = f"seed-{s}_search-{l}_iter-{it}_eval-{m}_history-{h}_lr-{lr}_ctf-{ctf}"
     if m is not None:
         m = int(m * it)
     cmd = (f"{prepend} python ~/plenoptic_experiments/ps_checkerboard/synthesize.py -s {s} -d {device} "
            f"--max_iter {it} --max_eval {m} --line_search_fn {l} --synth_max_iter {synth_max_iter} "
-           f"-o {base_out / outdir} --lr {lr} --history_size {h}")
+           f"-o {base_out / outdir} --lr {lr} --history_size {h} --coarse_to_fine {ctf}")
     cmd = f"({cmd}) &> {base_out / outdir}.log"
     commands.append(cmd)
 
