@@ -7,7 +7,7 @@ out_dir = new_dir.parent / "figs"
 out_dir.mkdir(exist_ok=True)
 
 prepend = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic"
-old_dir = pathlib.Path("/mnt/home/wbroderick/.cache/plenoptic/ps_regression.tar.gz.untar/")
+old_dir = pathlib.Path("/mnt/home/wbroderick/plenoptic/uploaded_files/")
 
 commands = []
 for f in old_dir.glob("ps*pt"):
