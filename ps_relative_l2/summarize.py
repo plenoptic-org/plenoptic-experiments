@@ -50,12 +50,11 @@ row = "LBFGS_history_size"
 y = "loss"
 height = 3
 fig = (
-    so.Plot(tmp, x=x, y=y, color=color, marker=marker)
+    so.Plot(df, x=x, y=y, color=color, marker=marker)
     .layout(size=(df[col].nunique() * height, height * df[row].nunique()))
     .facet(col=col, row=row).label(col="lr: ", row=f"history_size: ")
     .add(so.Dots())
     .scale(x="log", color=so.Nominal(), y="log")
-    .limit(y=(1e-4, 1e-1))
     .share(x=True, y=True)
 )
 fig.save(OUT_DIR / f"paired.svg", bbox_inches="tight")
