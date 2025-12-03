@@ -43,11 +43,13 @@ def main(
     rep = model.convert_to_dict(model(img))
     for k, v in rep.items():
         l2_norm[k] = torch.linalg.vector_norm(v[~v.isnan()], ord=2)
-        l2_norm[k] = l2_norm[k] * torch.ones_like(v)
+        l2_norm[k] = torch.ones_like(v) / l2_norm[k]
+        if k == "pixel_statistics":
+            l2_norm[k][..., -2:] = 0
     l2_norm = model.convert_to_tensor(l2_norm)
 
     def loss(x, y):
-        return po.tools.l2_norm(x / l2_norm, y / l2_norm)
+        return po.tools.l2_norm(x * l2_norm, y * l2_norm)
 
     met = po.synth.Metamer(
         img,
@@ -57,7 +59,7 @@ def main(
     if optimizer == "Adam":
         met.setup(init_img)
     else:
-        opt_kwargs = {"max_iter": max_iter, "max_eval": int(max_iter//2),
+        opt_kwargs = {"max_iter": max_iter, "max_eval": max_iter,
                       "history_size": history_size, "line_search_fn": "strong_wolfe",
                       "lr": 1}
         met.setup(init_img, optimizer=torch.optim.LBFGS, optimizer_kwargs=opt_kwargs)
@@ -77,7 +79,7 @@ if __name__ == "__main__":
     parser.add_argument("--img", "-i", default="fig4a")
     parser.add_argument("--init_img", "-t", default="seed-0")
     parser.add_argument("--optimizer", "-o", default="Adam")
-    parser.add_argument("--max_iter", default=6, type=int)
+    parser.add_argument("--max_iter", default=10, type=int)
     parser.add_argument("--history_size", default=100, type=int)
     parser.add_argument("--device", "-d", default=0)
     parser.add_argument("--synth_max_iter", default=200, type=int)

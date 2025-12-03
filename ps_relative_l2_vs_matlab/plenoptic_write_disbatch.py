@@ -21,19 +21,19 @@ else:
 
 commands = []
 
-optimizer = "Adam"
-synth_iters = [30, 75, 150, 300, 600]
-for f, it, sd in itertools.product(figs, synth_iters, seeds):
-    outfile = f"{optimizer}_{device}_{f}_seed-{sd}_iter-{it}"
-    cmd = f"bash time_plenoptic_synthesize.sh {f} seed-{sd} {optimizer} 0 {device} {it} {base_out / outfile}.pt"
-    cmd = f"({cmd}) &> {base_out / outfile}.log"
-    commands.append(cmd)
+# optimizer = "Adam"
+# synth_iters = [30, 75, 150, 300, 600]
+# for f, it, sd in itertools.product(figs, synth_iters, seeds):
+#     outfile = f"{optimizer}_{device}_{f}_seed-{sd}_iter-{it}"
+#     cmd = f"bash time_plenoptic_synthesize.sh {f} seed-{sd} {optimizer} 0 {device} {it} {base_out / outfile}.pt"
+#     cmd = f"({cmd}) &> {base_out / outfile}.log"
+#     commands.append(cmd)
 
 optimizer = "LBFGS"
 synth_iters = [10, 25, 50, 100, 200]
 history_size = [10, 100]
 for f, it, sd, h in itertools.product(figs, synth_iters, seeds, history_size):
-    outfile = f"{optimizer}-{h}_{device}_{f}_seed-{sd}_iter-{it}"
+    outfile = f"{optimizer}-{h}-10-10_{device}_{f}_seed-{sd}_iter-{it}"
     cmd = f"bash time_plenoptic_synthesize.sh {f} seed-{sd} {optimizer} {h} {device} {it} {base_out / outfile}.pt"
     cmd = f"({cmd}) &> {base_out / outfile}.log"
     commands.append(cmd)

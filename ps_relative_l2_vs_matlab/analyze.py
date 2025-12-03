@@ -35,8 +35,8 @@ if met.suffix == ".mat":
     data["optimizer"] = "matlab"
 else:
     if "LBFGS" in met.name:
-        history, device = re.findall("LBFGS-([0-9]+)_([0-9a-z]+)_fig", met.name)[0]
-        data["optimizer"] = f"LBFGS-{history}"
+        history, iter, eval, device = re.findall("LBFGS-([0-9]+)-([0-9]+)-([0-9]+)_([0-9a-z]+)_fig", met.name)[0]
+        data["optimizer"] = f"LBFGS-{history}-{iter}-{eval}"
     else:
         device = re.findall("Adam_([0-9a-z]+)_fig", met.name)[0]
         data["optimizer"] = "Adam"
