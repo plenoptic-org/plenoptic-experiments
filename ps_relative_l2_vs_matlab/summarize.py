@@ -19,13 +19,15 @@ except FileNotFoundError:
     df = pd.concat(df).reset_index(drop=True)
     df.to_csv(OUT_DIR / "all_loss.csv", index=False)
 
-# blue and orange, plus greens
-optimizer_palette = sns.color_palette("tab10", 2) + sns.color_palette("Greens", 2)
-optimizers = ["Adam", "matlab", "LBFGS-10", "LBFGS-100"]
+# blue and orange, plus reds and greens
+optimizer_palette = sns.color_palette("tab10", 2) + sns.color_palette("Reds", 2) + sns.color_palette("Greens", 2)
+optimizers = ["Adam", "matlab", "LBFGS-10-6-3", "LBFGS-100-6-3", "LBFGS-10-10-10", "LBFGS-100-10-10"]
 optimizer_palette = {k: v for k, v in zip(optimizers, optimizer_palette)}
 
 gb = df.groupby(["optimizer", "img", "device", "synth_iters"])
 df = df.set_index(["optimizer", "img", "device", "synth_iters"])
+# average time over different seeds, so they can be plotted together (don't have
+# capability to put error bars on x-axis)
 times = ["synth_only_time"]
 for t in times:
     df[f"{t}_mean"] = gb[t].mean()
@@ -40,6 +42,8 @@ display_funcs = {
     "mse": "Mean Squared Error",
 }
 
+exclude_opts = ["LBFGS-10-6-3", "LBFGS-100-6-3"]
+df = df.query("optimizer not in @exclude_opts")
 for n, g in df.groupby("loss_func"):
     height = 5
     loss = g.query("loss_type=='overall'")
@@ -64,7 +68,6 @@ for n, g in df.groupby("loss_func"):
         .facet(col=col, wrap=wrap)
         .label(x=display_times[x], y=display_funcs[n])
         .scale(color=optimizer_palette, y="log", x="log")
-        .limit(y=(1e-18, 1e2))
         .share(x=True, y=True)
         .add(so.Line(), so.Agg())
         .add(so.Range(), so.Est(errorbar=("pi", 95)), group='img')
