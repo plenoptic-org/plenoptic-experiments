@@ -66,7 +66,7 @@ def main(
     fig.savefig(output_dir / f"metamer.svg")
     plt.close(fig)
     iio.imwrite(output_dir / "metamer.png", po.tools.data.convert_float_to_int(po.to_numpy(met.metamer.clip(0, 1)).squeeze()))
-    real_loss = po.tools.l2_norm(img, met.metamer).item()
+    real_loss = po.tools.l2_norm(model(img), model(met.metamer)).item()
     data = {"filename": fn, "seed": seed, "loss": real_loss,
             "LBFGS_max_iter": max_iter, "LBFGS_max_eval": max_eval,
             "LBFGS_history_size": history_size, "learning_rate": lr, "synth_iter": len(met.losses),

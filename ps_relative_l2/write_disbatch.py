@@ -2,13 +2,13 @@ import sys
 import itertools
 from pathlib import Path
 
-base_out = Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_relative_l2")
+base_out = Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_relative_l2_again")
 base_out.mkdir(exist_ok=True)
 
-synth_max_iter= 2000
+synth_max_iter= 100
 device= 'cpu'
 
-img = ["fig4a", "fig16b"]
+img = ["fig4a", "fig16b", "fig16d"]
 seed= [0, 1]
 max_iter= [5, 10, 20, 40]
 max_eval = [.5, 1, None]

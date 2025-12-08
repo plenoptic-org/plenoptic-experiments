@@ -3,8 +3,8 @@ import pathlib
 import itertools
 import seaborn.objects as so
 
-SYNTH_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_relative_l2/")
-OUT_DIR = pathlib.Path("summary")
+SYNTH_DIR = pathlib.Path("/mnt/ceph/users/wbroderick/plenoptic_experiments/ps_relative_l2_again/")
+OUT_DIR = pathlib.Path("summary_again")
 OUT_DIR.mkdir(exist_ok=True)
 
 
@@ -20,21 +20,12 @@ def update_vals(x, col):
         else:
             return x[col]
 
-
 try:
     df = pd.read_csv(OUT_DIR / "all_loss.csv")
 except FileNotFoundError:
     df = []
     for p in SYNTH_DIR.glob("*/loss.csv"):
         tmp = pd.read_csv(p)
-        # first time we ran this, we forgot to call .item() on the loss before saving,
-        # so it ended up as a string of the form "tensor(X, dtype=..., grad_fn=...)". so
-        # we need to parse it to a float
-        try:
-            tmp.loss = tmp.loss.apply(lambda x: float(x.split('(')[1].split(',')[0]))
-        except AttributeError:
-            # then this is already a float
-            pass
         df.append(tmp)
     df = pd.concat(df).reset_index()
     df.to_csv(OUT_DIR / "all_loss.csv", index=False)
