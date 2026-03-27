@@ -8,10 +8,58 @@ import pathlib
 from typing import Literal
 import imageio.v3 as iio
 import pandas as pd
-import torchvision
+from plot import compute, plot, animate
+
+
+def spyr_loss(img, device, variant):
+    pyr = po.simul.SteerablePyramidFreq(img.shape[-2:])
+    pyr.to(device).to(torch.float64)
+    coeffs = {k: v.abs().mean(dim=(-2, -1)) for k, v in pyr(img).items()}
+    coeffs = torch.cat([v.flatten(1, -1) for v in coeffs.values()], 1)
+    if variant.startswith("exp"):
+        func = torch.exp
+    else:
+        func = lambda x: x
+    variant = variant.replace("exp", "")
+    if "mask" in variant:
+        mask = pyr(img)
+        if variant == "maskall":
+            for scale in [1, 2, 3]:
+                mask[scale] = torch.zeros_like(mask[scale])
+        elif variant == "masklow":
+            for scale in [1, 2, 3, 4, 5, "residual_highpass"]:
+                mask[scale] = torch.zeros_like(mask[scale])
+        elif variant == "maskhigh":
+            for scale in ["residual_lowpass", 0, 1, 2, 3]:
+                mask[scale] = torch.zeros_like(mask[scale])
+        elif variant == "maskvert":
+            for scale in ["residual_highpass", "residual_lowpass", 1, 2, 3]:
+                mask[scale] = torch.zeros_like(mask[scale])
+            for scale in [0, 4, 5]:
+                mask[scale][:, :, 1:] = 0
+        elif variant == "maskdiag":
+            for scale in ["residual_highpass", "residual_lowpass", 1, 2, 3]:
+                mask[scale] = torch.zeros_like(mask[scale])
+            for scale in [0, 4, 5]:
+                mask[scale][:, :, 0] = 0
+                mask[scale][:, :, 2] = 0
+        mask = {k: v.abs().mean(dim=(-2, -1)) for k, v in mask.items()}
+        mask = torch.cat([v.flatten(1, -1) for v in mask.values()], 1)
+        mask = mask.to(torch.bool)
+    else:
+        mask = torch.ones_like(coeffs)
+
+    def penalty(x):
+        penalty = {k: v.abs().mean(dim=(-2, -1)) for k, v in pyr(x).items()}
+        penalty = torch.cat([v.flatten(1, -1) for v in penalty.values()], 1)
+        penalty = mask * (penalty / coeffs)
+        return func(1 - penalty.diff(dim=0).pow(2).mean())
+
+    return penalty
 
 
 def alexnet_category_loss(comb_func, device):
+    import torchvision
     model = torchvision.models.alexnet(weights=torchvision.models.AlexNet_Weights.IMAGENET1K_V1)
     # THIS IS IMPORTANT in order to prevent dropout and thus make model output non-stochastic
     model.eval()
@@ -73,10 +121,10 @@ def init_metamer(
         }
         optim = torch.optim.LBFGS
     try:
-        penalty, comb_func = penalty.split("-")
-        if comb_func == "logsumexp":
+        penalty, variant = penalty.split("-")
+        if variant == "logsumexp":
             comb_func = lambda x: torch.logsumexp(x, 0)
-        elif comb_func == "sse":
+        elif variant == "sse":
             comb_func = lambda x: x.pow(2).sum()
         if penalty == "mse":
             def penalty_part(x):
@@ -85,6 +133,8 @@ def init_metamer(
                 return comb_func(1-torch.stack(penalty))
         elif penalty == "alexnet":
             penalty_part = alexnet_category_loss(comb_func, device)
+        elif penalty == "spyr":
+            penalty_part = spyr_loss(img, device, variant)
         else:
             func = eval(f"po.metric.{penalty}")
             if penalty == "nlpd":
@@ -115,9 +165,10 @@ def main(
     init_seed: int = 0,
     device: str | int = 0,
     synth_max_iter: int = 200,
-    output_path: str = "result.pt",
+    output_path: str | pathlib.Path = "result.pt",
 ):
     torch.set_num_threads(1)
+    output_path = pathlib.Path(output_path)
     met, optim, opt_kwargs = init_metamer(img, model, penalty, penalty_lambda,
                                           batch_n, init_seed, device)
     met.setup(optimizer=optim, optimizer_kwargs=opt_kwargs)
@@ -125,6 +176,10 @@ def main(
                    store_progress=synth_max_iter//50)
     print(f"saving to {output_path}")
     met.save(output_path)
+    met_loss, met_penalty = compute(met, device)
+    met.to("cpu")
+    plot(met, met_loss, met_penalty, output_path.with_suffix(".svg"))
+    animate(met, output_path.with_name(f"{output_path.stem}-0.mp4"))
 
 
 if __name__ == "__main__":
@@ -142,4 +197,9 @@ if __name__ == "__main__":
     parser.add_argument("--synth_max_iter", "-n", default=200, type=int)
     parser.add_argument("--output_path", '-f', default="result.pt")
     args = vars(parser.parse_args())
-    main(**args)
+    device = args.pop("device")
+    try:
+        device = torch.device(device)
+    except RuntimeError:
+        device = torch.device(int(device))
+    main(device=device, **args)
