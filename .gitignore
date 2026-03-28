@@ -67,8 +67,8 @@ venv
 disbatch_out/
 *svg
 
-disbatch*txt
-disbatch*log
-disbatch*sh
-disbatch*out
+*disbatch*txt
+*disbatch*log
+*disbatch*sh
+*disbatch*out
 slurm*
