@@ -25,24 +25,31 @@ def spyr_loss(img, device, variant):
         mask = pyr(img)
         if variant == "maskall":
             for scale in [1, 2, 3]:
-                mask[scale] = torch.zeros_like(mask[scale])
-        elif variant == "masklow":
-            for scale in [1, 2, 3, 4, 5, "residual_highpass"]:
-                mask[scale] = torch.zeros_like(mask[scale])
+                if scale in mask:
+                    mask[scale] = torch.zeros_like(mask[scale])
         elif variant == "maskhigh":
-            for scale in ["residual_lowpass", 0, 1, 2, 3]:
-                mask[scale] = torch.zeros_like(mask[scale])
+            for scale in [1, 2, 3, 4, 5, "residual_lowpass"]:
+                if scale in mask:
+                    mask[scale] = torch.zeros_like(mask[scale])
+        elif variant == "masklow":
+            for scale in ["residual_highpass", 0, 1, 2, 3]:
+                if scale in mask:
+                    mask[scale] = torch.zeros_like(mask[scale])
         elif variant == "maskvert":
             for scale in ["residual_highpass", "residual_lowpass", 1, 2, 3]:
-                mask[scale] = torch.zeros_like(mask[scale])
+                if scale in mask:
+                    mask[scale] = torch.zeros_like(mask[scale])
             for scale in [0, 4, 5]:
-                mask[scale][:, :, 1:] = 0
+                if scale in mask:
+                    mask[scale][:, :, 1:] = 0
         elif variant == "maskdiag":
             for scale in ["residual_highpass", "residual_lowpass", 1, 2, 3]:
-                mask[scale] = torch.zeros_like(mask[scale])
+                if scale in mask:
+                    mask[scale] = torch.zeros_like(mask[scale])
             for scale in [0, 4, 5]:
-                mask[scale][:, :, 0] = 0
-                mask[scale][:, :, 2] = 0
+                if scale in mask:
+                    mask[scale][:, :, 0] = 0
+                    mask[scale][:, :, 2] = 0
         mask = {k: v.abs().mean(dim=(-2, -1)) for k, v in mask.items()}
         mask = torch.cat([v.flatten(1, -1) for v in mask.values()], 1)
         mask = mask.to(torch.bool)
@@ -96,7 +103,16 @@ def init_metamer(
     except:
         pass
     device = torch.device(device)
-    img = eval(f"po.data.{img}()")
+    if "blur" in img:
+        img, mod = img.split("-")
+        mod = mod.replace("blur", "")
+        img = eval(f"po.data.{img}()")
+        img = po.tools.blur_downsample(img, int(mod))
+    elif "crop" in img:
+        img, mod = img.split("-")
+        mod = mod.replace("crop", "")
+        img = eval(f"po.data.{img}()")
+        img = po.tools.center_crop(img, int(mod))
     img = img.to(device).to(torch.float64)
     po.tools.set_seed(init_seed)
     if model == "LGC":
@@ -179,7 +195,7 @@ def main(
     met_loss, met_penalty = compute(met, device)
     met.to("cpu")
     plot(met, met_loss, met_penalty, output_path.with_suffix(".svg"))
-    animate(met, output_path.with_name(f"{output_path.stem}-0.mp4"))
+    # animate(met, output_path.with_name(f"{output_path.stem}-0.mp4"))
 
 
 if __name__ == "__main__":

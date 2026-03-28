@@ -25,21 +25,28 @@ prefix = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/t
 penalty = ["spyr"]
 comb_func = ["exp"] + ["".join(p) for p in itertools.product(["exp", ""], ["maskall", "masklow", "maskhigh", "maskvert", "maskdiag"])]
 penalty = ['-'.join(p) for p in itertools.product(penalty, comb_func)]
-# penalty += ["none"]
-penalty_lambda = [1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2]
-for m, p, l, sd in itertools.product(models, penalty, penalty_lambda, seeds):
+penalty = ["none", "nlpd-sse", "spyr-expmaskall", "spyr-expmaskvert", "spyr-expmaskhigh"]
+imgs = ["einstein-crop128", "einstein-crop64", "einstein-blur1", "einstein-blur2"]
+for img, m, p, sd in itertools.product(imgs, models, penalty, seeds):
     if m == "PS":
         it = 1000
-        img = "reptile_skin"
+        # img = "reptile_skin"
     elif m == "LGC":
         it = 6000
-        img = "einstein"
-    outfile = base_out / f"model-{m}_img-{img}_penalty-{p}_lambda-{l:.00e}_{device}_seed-{sd}_iter-{it}.pt"
-    if outfile.exists() or outfile.with_name(outfile.name.replace("cpu", "0")).exists():
-        continue
-    cmd = f"python synthesize.py -m {m} -i {img} -p {p} -l {l} -d {device} -s {sd} -n {it} -f {outfile}"
-    cmd = f"({prefix} {cmd}) &> {outfile.with_suffix('.log')}"
-    commands.append(cmd)
+        # img = "einstein"
+
+    if p != "none":
+        penalty_lambda = [1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2]
+    else:
+        penalty_lambda = [1]
+
+    for l in penalty_lambda:
+        outfile = base_out / f"model-{m}_img-{img}_penalty-{p}_lambda-{l:.00e}_{device}_seed-{sd}_iter-{it}.pt"
+        if outfile.exists() or outfile.with_name(outfile.name.replace("cpu", "0")).exists():
+            continue
+        cmd = f"python synthesize.py -m {m} -i {img} -p {p} -l {l} -d {device} -s {sd} -n {it} -f {outfile}"
+        cmd = f"({prefix} {cmd}) &> {outfile.with_suffix('.log')}"
+        commands.append(cmd)
 
 with open(fn, "w") as f:
     f.write('\n'.join(commands))
