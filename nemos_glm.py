@@ -60,9 +60,6 @@ y_test = neuron_counts[n_test_start:n_test_stop]
 
 basis_stim = nmo.basis.HistoryConv(window_size_stim, label="stim", conv_kwargs={"shift": False})
 X_stim = basis_stim.compute_features(stimulus[:n_train])
-# Reverse the column order so coef_ runs from the most distant lag to the
-# present, matching the convention of the earlier tutorials (see Tutorial 1).
-X_stim = X_stim[:, ::-1]
 y_train = neuron_counts[:n_train]
 
 glm_stim = nmo.glm.GLM(observation_model="Poisson")
@@ -78,3 +75,27 @@ basis_stim_spk = basis_stim + basis_spk
 X_stim_spk = basis_stim_spk.compute_features(stimulus[:n_train], counts[:n_train])
 glm_stim_spk = nmo.glm.GLM(observation_model="Poisson", solver_name="BFGS")
 glm_stim_spk.fit(X_stim_spk, y_train)
+
+stim_coeff = basis_stim_spk.split_by_feature(glm_stim_spk.coef_, 0)["stim"]
+
+np.savez("nemos_coeffs.npz", stim_alone_coef_=glm_stim.coef_, stim_spike_coef_=stim_coeff,
+         stim_alone_intercept_=glm_stim.intercept_, stim_spike_intercept_=glm_stim_spk.intercept_,
+         stim_alone_link_func = glm_stim.inverse_link_function.__name__,
+         stim_spike_link_func = glm_stim_spk.inverse_link_function.__name__,
+         stimulus=stim,
+         allow_pickle=False)
+
+save_dict = {}
+save_dict["n_simulations"] = 5
+for i in range(save_dict["n_simulations"]):
+    key = jax.random.PRNGKey(i)
+    rand_input = jax.random.uniform(key, 10000)
+    X_rand = basis_stim.compute_features(rand_input)
+    output_stim = glm_stim.predict(X_rand)
+    zeros_spk = basis_spk.compute_features(jax.numpy.zeros((rand_input.shape[0], counts.shape[1])))
+    output_stim_spk = glm_stim_spk.predict(jax.numpy.concat([X_rand, zeros_spk], axis=1))
+    save_dict[f"input_{i}"] = rand_input
+    save_dict[f"output_stim_{i}"] = output_stim
+    save_dict[f"output_stim_spk_{i}"] = output_stim_spk
+
+np.savez("nemos_simulations.npz", allow_pickle=False, **save_dict)
