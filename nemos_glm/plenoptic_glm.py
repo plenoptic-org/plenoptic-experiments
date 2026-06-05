@@ -71,7 +71,7 @@ class GLM(torch.nn.Module):
 def plot_met(mets, labels, save_path="tmp.svg"):
     if not hasattr(mets, "__len__"):
         mets = [mets]
-    if not hasattr(labels, "__len__"):
+    if isinstance(labels, str):
         labels = [labels]
     gs = mpl.gridspec.GridSpec(4, 2, width_ratios=[1, 3])
     fig = plt.figure(layout="constrained", figsize=(20, 10))
