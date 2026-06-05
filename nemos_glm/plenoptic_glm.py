@@ -116,17 +116,24 @@ def prepare_met(stim, model, penalty=None, penalty_lambda=0.1):
     return met
 
 
-def validate_model(model, simulation_key, simulations="nemos_simulations.npz"):
-    if isinstance(simulations, str):
-        simulations = np.load("nemos_simulations.npz")
+@app.command()
+def validate_model(
+    glm_path: Annotated[Path, typer.Argument(help="Path to npz file created by nemos's save_params().")],
+    simulation_key: Annotated[str, typer.Argument(help="Key in the simulations file corresponding to the results for this model")],
+    simulation_path: Annotated[Path, typer.Option(help="Path to npz file containing the simulations.")] = "nemos_simulations.npz",
+):
+    glm = GLM.load_nemos_glm(glm_path)
+    simulations = np.load(simulation_path)
+    if simulation_key == "stim":
+        nan_idx = 19
+    elif simulation_key == "stim_spk":
+        # zeros_spk has another time point of nans because conv_kwargs isn't set
+        nan_idx = 20
 
     for i in range(simulations["n_simulations"]):
         sim_input = jax_to_torch(simulations[f"input_{i}"], 2)
-        sim_output = jax_to_torch(simulations[f"output_{simulation_key}_{i}"], 2)[..., 19:]
-        assert torch.allclose(sim_output, glm(sim_input))
-        # zeros_spk has another time point of nans because conv_kwargs isn't set
-        sim_output = jax_to_torch(simulations[f"output_{simulation_key}_{i}"], 2)[..., 20:]
-        assert torch.allclose(sim_output, glm_spk(sim_input)[..., 1:])
+        sim_output = jax_to_torch(simulations[f"output_{simulation_key}_{i}"], 2)[..., nan_idx:]
+        assert torch.allclose(sim_output, glm(sim_input)[..., (nan_idx-19):])
 
 
 def prepare_penalty(stim, penalty):
