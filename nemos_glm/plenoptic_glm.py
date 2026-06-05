@@ -38,7 +38,7 @@ class GLM(torch.nn.Module):
             state_dict["conv.weight"] = weight.unsqueeze(0).unsqueeze(0)
         if bias is not None:
             state_dict["conv.bias"] = bias
-        if link_func == "exp":
+        if link_func == "jax.numpy.exp":
             self.link_func = torch.exp
         else:
             raise ValueError(f"Don't know how to handle {link_func=}")
@@ -48,11 +48,17 @@ class GLM(torch.nn.Module):
         return self.link_func(self.conv(x, **kwargs))
 
     @classmethod
-    def from_nemos_glm(cls, coeffs_npz, nemos_key):
+    def load_nemos_glm(cls, path):
         # nemos convention is reverse of torch's
-        weight = jax_to_torch(coeffs_npz[f"{nemos_key}_coef_"][::-1])
-        bias = jax_to_torch(coeffs_npz[f"{nemos_key}_intercept_"])
-        link_func = coeffs_npz[f"{nemos_key}_link_func"]
+        coeffs_npz = np.load(path)
+        try:
+            # this is a simple GLM
+            weight = jax_to_torch(coeffs_npz["item::strkey:coef_"][::-1])
+        except KeyError:
+            # this is a GLM that was fit using a pytree, specifying the stimulus filter
+            weight = jax_to_torch(coeffs_npz["dict::strkey:coef_::item::strkey:stim"][::-1])
+        bias = jax_to_torch(coeffs_npz["item::strkey:intercept_"])
+        link_func = coeffs_npz["item::strkey:inverse_link_function"]
         return cls(weight=weight, bias=bias, link_func=link_func)
 
 def plot(met, met_penalty, save_path="tmp.svg"):
@@ -100,13 +106,12 @@ def run_met(stim, model):
 
 # load in models
 
-coeffs = np.load("nemos_coeffs.npz")
-simulations = np.load("nemos_simulations.npz")
-
-glm = GLM.from_nemos_glm(coeffs, "stim_alone")
-glm_spk = GLM.from_nemos_glm(coeffs, "stim_spike")
+glm = GLM.load_nemos_glm("glm_stim.npz")
+glm_spk = GLM.load_nemos_glm("glm_stim_spk.npz")
 
 # test models
+
+simulations = np.load("nemos_simulations.npz")
 
 for i in range(simulations["n_simulations"]):
     sim_input = jax_to_torch(simulations[f"input_{i}"], 2)

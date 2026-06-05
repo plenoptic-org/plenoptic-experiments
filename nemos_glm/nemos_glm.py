@@ -65,6 +65,8 @@ y_train = neuron_counts[:n_train]
 glm_stim = nmo.glm.GLM(observation_model="Poisson")
 glm_stim.fit(X_stim, y_train)
 
+glm_stim.save_params("glm_stim.npz")
+
 ### GLM with spike history and coupling
 
 window_size_spk = 20
@@ -73,17 +75,11 @@ basis_spk  = nmo.basis.HistoryConv(window_size_spk,  label="spike")
 basis_stim_spk = basis_stim + basis_spk
 
 X_stim_spk = basis_stim_spk.compute_features(stimulus[:n_train], counts[:n_train])
+X_stim_spk = {k: v.reshape((n_train, -1)) for k, v in  basis_stim_spk.split_by_feature(X_stim_spk).items()}
 glm_stim_spk = nmo.glm.GLM(observation_model="Poisson", solver_name="BFGS")
 glm_stim_spk.fit(X_stim_spk, y_train)
 
-stim_coeff = basis_stim_spk.split_by_feature(glm_stim_spk.coef_, 0)["stim"]
-
-np.savez("nemos_coeffs.npz", stim_alone_coef_=glm_stim.coef_, stim_spike_coef_=stim_coeff,
-         stim_alone_intercept_=glm_stim.intercept_, stim_spike_intercept_=glm_stim_spk.intercept_,
-         stim_alone_link_func = glm_stim.inverse_link_function.__name__,
-         stim_spike_link_func = glm_stim_spk.inverse_link_function.__name__,
-         stimulus=stim,
-         allow_pickle=False)
+glm_stim_spk.save_params("glm_stim_spk.npz")
 
 save_dict = {}
 save_dict["n_simulations"] = 5
@@ -93,7 +89,7 @@ for i in range(save_dict["n_simulations"]):
     X_rand = basis_stim.compute_features(rand_input)
     output_stim = glm_stim.predict(X_rand)
     zeros_spk = basis_spk.compute_features(jax.numpy.zeros((rand_input.shape[0], counts.shape[1])))
-    output_stim_spk = glm_stim_spk.predict(jax.numpy.concat([X_rand, zeros_spk], axis=1))
+    output_stim_spk = glm_stim_spk.predict({"stim": X_rand, "spike": zeros_spk})
     save_dict[f"input_{i}"] = rand_input
     save_dict[f"output_stim_{i}"] = output_stim
     save_dict[f"output_stim_spk_{i}"] = output_stim_spk
