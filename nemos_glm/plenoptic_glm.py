@@ -9,6 +9,7 @@ import copy
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import warnings
 
 app = typer.Typer(add_completion=False)
 
@@ -100,18 +101,18 @@ def plot_met(mets, labels, save_path="tmp.svg"):
     plt.close(fig)
 
 
-def prepare_met(stim, model, penalty=None):
+def prepare_met(stim, model, penalty=None, penalty_lambda=0.1):
     po.remove_grad(model)
     model.eval()
 
     if penalty is None:
         met = po.Metamer(stim, model, penalty_lambda=0)
+        warnings.warn("Ignoring penalty_lambda because penalty is None")
     elif penalty == "range":
-        met = po.Metamer(stim, model, penalty_function=lambda x: po.regularize.penalize_range(x, (-.5, .5)))
+        met = po.Metamer(stim, model, penalty_function=lambda x: po.regularize.penalize_range(x, (-.5, .5)), penalty_lambda=penalty_lambda)
     else:
-        met = po.Metamer(stim, model, penalty_function=penalty)
+        met = po.Metamer(stim, model, penalty_function=penalty, penalty_lambda=penalty_lambda)
 
-    met.setup(optimizer=torch.optim.LBFGS)
     return met
 
 
@@ -145,17 +146,18 @@ def prepare_penalty(stim, penalty):
     elif penalty == "anticorr":
         penalty = lambda x: corr_penalty(x, -1) + po.regularize.penalize_range(x, (-.5, .5))
     elif penalty == "mse":
-        penalty = lambda x: (x.squeeze() - stim.squeeze()).pow(2).mean()
-
+        # exp(-MSE)
+        penalty = lambda x: torch.exp((-((x - stim).pow(2).mean()))) + po.regularize.penalize_range(x, (-.5, .5))
     return penalty
 
 
 @app.command()
 def synthesize(
     glm_path: Annotated[Path, typer.Argument(help="Path to npz file created by nemos's save_params().")],
-    penalty: Annotated[Literal[None, "range", "corr", "uncorr", "anticorr", "mse"], typer.Option(help="Penalty to use.")] = None,
-    save_stem: Annotated[str, typer.Option(help="Stem to use for saving metamer")] = "met",
     stimulus_path: Annotated[Path, typer.Argument(help="Path to npz file containing the stimulus.")] = "nemos_stimulus.npz",
+    penalty: Annotated[Literal[None, "range", "corr", "uncorr", "anticorr", "mse"], typer.Option(help="Penalty to use.")] = None,
+    penalty_lambda: Annotated[float, typer.Option(help="Penalty lambda to use.")] = 0.1,
+    save_stem: Annotated[str, typer.Option(help="Stem to use for saving metamer")] = "met",
     seed: Annotated[int, typer.Option(help="RNG seed.")] = 1,
 ):
     """Synthesize. """
@@ -166,7 +168,8 @@ def synthesize(
     stim = jax_to_torch(np.load(stimulus_path)["stimulus"], 2)[..., :200]
     penalty = prepare_penalty(stim, penalty)
 
-    met = prepare_met(stim, glm, penalty)
+    met = prepare_met(stim, glm, penalty, penalty_lambda)
+    met.setup(optimizer=torch.optim.LBFGS)
     met.synthesize(1000, stop_criterion=1e-20)
     met.save(f"{save_stem}.pt")
 
@@ -175,8 +178,10 @@ def synthesize(
 def plot(
     glm_path: Annotated[Path, typer.Argument(help="Path to npz file created by nemos's save_params().")],
     penalty: Annotated[Literal[None, "range", "corr", "uncorr", "anticorr", "mse"], typer.Option(help="Penalty to use.")] = None,
+    penalty_lambda: Annotated[float, typer.Option(help="Penalty lambda to use.")] = 0.1,
     load_stem: Annotated[str, typer.Option(help="Stem to use for loading metamer")] = "met",
     metamer_label: Annotated[str, typer.Option(help="Label to use in legend")] = "Metamer",
+    stimulus_path: Annotated[Path, typer.Argument(help="Path to npz file containing the stimulus.")] = "nemos_stimulus.npz",
 ):
     """Plot synthesized metamers."""
 
@@ -184,7 +189,7 @@ def plot(
     # do plenoptic
     stim = jax_to_torch(np.load(stimulus_path)["stimulus"], 2)[..., :200]
     penalty = prepare_penalty(stim, penalty)
-    met = prepare_met(stim, glm, penalty)
+    met = prepare_met(stim, glm, penalty, penalty_lambda)
     met.load(f"{load_stem}.pt")
     plot_met(met, metamer_label, f"{load_stem}.svg")
 
