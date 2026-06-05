@@ -61,48 +61,51 @@ class GLM(torch.nn.Module):
         link_func = coeffs_npz["item::strkey:inverse_link_function"]
         return cls(weight=weight, bias=bias, link_func=link_func)
 
-def plot(met, met_penalty, save_path="tmp.svg"):
+def plot(mets, labels, save_path="tmp.svg"):
+    if not hasattr(mets, "__len__"):
+        mets = [mets]
+    if not hasattr(labels, "__len__"):
+        labels = [labels]
     gs = mpl.gridspec.GridSpec(4, 2, width_ratios=[1, 3])
     fig = plt.figure(layout="constrained", figsize=(20, 10))
     ax = fig.add_subplot(gs[1:3, 0])
+    met = mets[0]
     ax.plot(po.to_numpy(met.model.conv.weight.squeeze()))
     ax.set_title("Filter")
     ax = fig.add_subplot(gs[:2, 1])
     ax.set_title("Stimuli")
     ax.plot(met.image.squeeze(), label="Real stimulus")
-    ax.plot(po.to_numpy(met.metamer.squeeze()), "--", label="Metamer")
-    ax.plot(po.to_numpy(met_penalty.metamer.squeeze()), "--", label="Metamer with penalty")
+    for met, label in zip(mets, labels):
+        ax.plot(po.to_numpy(met.metamer.squeeze()), "--", label=label)
     ax.legend()
-    ax.set(xlim=(0, 200))
+    n_timepts = met.image.shape[-1]
+    ax.set(xlim=(0, n_timepts))
     model_stim = met.model(met.image).squeeze()
-    model_stim = torch.cat([torch.nan * torch.zeros(stim.shape[-1]-len(model_stim)), model_stim])
+    init_x = n_timepts - len(model_stim)
+    x = np.arange(init_x, met.image.shape[-1])
     ax = fig.add_subplot(gs[2:, 1])
     ax.set_title("Model response")
-    ax.plot(po.to_numpy(model_stim), label="Real stimulus")
-    model_met = met.model(met.metamer).squeeze()
-    model_met = torch.cat([torch.nan * torch.zeros(stim.shape[-1]-len(model_met)), model_met])
-    ax.plot(po.to_numpy(model_met), "--", label="Metamer")
-    model_met = met_penalty.model(met_penalty.metamer).squeeze()
-    model_met = torch.cat([torch.nan * torch.zeros(stim.shape[-1]-len(model_met)), model_met])
-    ax.plot(po.to_numpy(model_met), "--", label="Metamer with penalty")
+    ax.plot(x, po.to_numpy(model_stim), label="Real stimulus")
+    for met, label in zip(mets, labels):
+        ax.plot(x, po.to_numpy(met.model(met.metamer).squeeze()), "--", label=label)
     ax.legend()
-    ax.set(xlim=(0, 200))
+    ax.set(xlim=(0, n_timepts))
     fig.savefig(save_path, bbox_inches="tight")
 
-def run_met(stim, model):
+def run_met(stim, model, penalty=None):
     po.remove_grad(model)
     model.eval()
 
-    met = po.Metamer(stim, model, penalty_lambda=0)
+    if penalty is None:
+        met = po.Metamer(stim, model, penalty_lambda=0)
+    elif penalty == "range":
+        met = po.Metamer(stim, model, penalty_function=lambda x: po.regularize.penalize_range(x, (-.5, .5)))
+    else:
+        met = po.Metamer(stim, model, penalty_function=penalty)
+
     met.setup(optimizer=torch.optim.LBFGS)
     met.synthesize(1000, stop_criterion=1e-20)
-
-    met_penalty = po.Metamer(stim, model, penalty_function=lambda x: po.regularize.penalize_range(x, (-.5, .5)))
-    met_penalty.setup(optimizer=torch.optim.LBFGS)
-    met_penalty.synthesize(1000, stop_criterion=1e-20)
-
-    return met, met_penalty
-
+    return met
 
 # load in models
 
@@ -122,15 +125,49 @@ for i in range(simulations["n_simulations"]):
     assert torch.allclose(sim_output, glm_spk(sim_input)[..., 1:])
 
 
+po.set_seed(1)
+
 # do plenoptic
-stim = jax_to_torch(coeffs["stimulus"], 2)[..., :200]
-met, met_penalty = run_met(stim, glm)
+stim = jax_to_torch(np.load("nemos_stimulus.npz")["stimulus"], 2)[..., :200]
+met = run_met(stim, glm)
+met.save("met.pt")
+met_range = run_met(stim, glm, "range")
+met_range.save("met_range.pt")
+
+# this remaps so that the minumum is at target, at which point are function is 0. this
+# works as long as we have a finite target (if our target was -inf, it wouldn't)
+def remap(x, target=0):
+    return (x-target).pow(2)
+
+def corr_penalty(metamer, target=0):
+    penalty = torch.corrcoef(torch.stack([stim.squeeze(), metamer.squeeze()], 0))[0, 1]
+    return remap(penalty, target)
+
+met_corr = run_met(stim, glm, lambda x: corr_penalty(x, 1) + po.regularize.penalize_range(x, (-.5, .5)))
+met_corr.save("met_corr.pt")
+met_uncorr = run_met(stim, glm, lambda x: corr_penalty(x, 0) + po.regularize.penalize_range(x, (-.5, .5)))
+met_uncorr.save("met_uncorr.pt")
+met_anticorr = run_met(stim, glm, lambda x: corr_penalty(x, -1) + po.regularize.penalize_range(x, (-.5, .5)))
+met_anticorr.save("met_anticorr.pt")
 
 # plots
-plot(met, met_penalty, "glm.svg")
+plot([met, met_range, met_corr, met_uncorr, met_anticorr],
+     ["Metamer", "Metamer+Range", "Metamer+Range+Corr","Metamer+Range+UnCorr", "Metamer+Range+AntiCorr"],
+     "glm.svg")
 
 # do plenoptic with other model
-met, met_penalty = run_met(stim, glm_spk)
+met = run_met(stim, glm_spk)
+met.save("met_spk.pt")
+met_range = run_met(stim, glm_spk, "range")
+met_range.save("met_range_spk.pt")
+met_corr = run_met(stim, glm_spk, lambda x: corr_penalty(x, 1) + po.regularize.penalize_range(x, (-.5, .5)))
+met_corr.save("met_corr_spk.pt")
+met_uncorr = run_met(stim, glm_spk, lambda x: corr_penalty(x, 0) + po.regularize.penalize_range(x, (-.5, .5)))
+met_uncorr.save("met_uncorr_spk.pt")
+met_anticorr = run_met(stim, glm_spk, lambda x: corr_penalty(x, -1) + po.regularize.penalize_range(x, (-.5, .5)))
+met_anticorr.save("met_anticorr_spk.pt")
 
 # plots
-plot(met, met_penalty, "glm_spk.svg")
+plot([met, met_range, met_corr, met_uncorr, met_anticorr],
+     ["Metamer", "Metamer+Range", "Metamer+Range+Corr","Metamer+Range+UnCorr", "Metamer+Range+AntiCorr"],
+     "glm_spk.svg")

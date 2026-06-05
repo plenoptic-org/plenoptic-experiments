@@ -81,6 +81,8 @@ glm_stim_spk.fit(X_stim_spk, y_train)
 
 glm_stim_spk.save_params("glm_stim_spk.npz")
 
+np.savez("nemos_stimulus.npz", allow_pickle=False, stimulus=stimulus)
+
 save_dict = {}
 save_dict["n_simulations"] = 5
 for i in range(save_dict["n_simulations"]):
