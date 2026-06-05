@@ -2,18 +2,23 @@
 
 import plenoptic as po
 import torch
+import typer
+from pathlib import Path
+from typing import Annotated, Literal
 import copy
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-plt.close("all")
+app = typer.Typer(add_completion=False)
+
 
 def jax_to_torch(x, n_unsqueeze=0):
     x = torch.from_numpy(copy.copy(np.asarray(x)))
     for _ in range(n_unsqueeze):
         x = x.unsqueeze(0)
     return x
+
 
 class GLM(torch.nn.Module):
     def __init__(self, weight_shape=None, weight=None, bias=None, link_func="exp"):
@@ -61,7 +66,8 @@ class GLM(torch.nn.Module):
         link_func = coeffs_npz["item::strkey:inverse_link_function"]
         return cls(weight=weight, bias=bias, link_func=link_func)
 
-def plot(mets, labels, save_path="tmp.svg"):
+
+def plot_met(mets, labels, save_path="tmp.svg"):
     if not hasattr(mets, "__len__"):
         mets = [mets]
     if not hasattr(labels, "__len__"):
@@ -91,8 +97,10 @@ def plot(mets, labels, save_path="tmp.svg"):
     ax.legend()
     ax.set(xlim=(0, n_timepts))
     fig.savefig(save_path, bbox_inches="tight")
+    plt.close(fig)
 
-def run_met(stim, model, penalty=None):
+
+def prepare_met(stim, model, penalty=None):
     po.remove_grad(model)
     model.eval()
 
@@ -104,70 +112,82 @@ def run_met(stim, model, penalty=None):
         met = po.Metamer(stim, model, penalty_function=penalty)
 
     met.setup(optimizer=torch.optim.LBFGS)
-    met.synthesize(1000, stop_criterion=1e-20)
     return met
 
-# load in models
 
-glm = GLM.load_nemos_glm("glm_stim.npz")
-glm_spk = GLM.load_nemos_glm("glm_stim_spk.npz")
+def validate_model(model, simulation_key, simulations="nemos_simulations.npz"):
+    if isinstance(simulations, str):
+        simulations = np.load("nemos_simulations.npz")
 
-# test models
-
-simulations = np.load("nemos_simulations.npz")
-
-for i in range(simulations["n_simulations"]):
-    sim_input = jax_to_torch(simulations[f"input_{i}"], 2)
-    sim_output = jax_to_torch(simulations[f"output_stim_{i}"], 2)[..., 19:]
-    assert torch.allclose(sim_output, glm(sim_input))
-    # zeros_spk has another time point of nans because conv_kwargs isn't set
-    sim_output = jax_to_torch(simulations[f"output_stim_spk_{i}"], 2)[..., 20:]
-    assert torch.allclose(sim_output, glm_spk(sim_input)[..., 1:])
+    for i in range(simulations["n_simulations"]):
+        sim_input = jax_to_torch(simulations[f"input_{i}"], 2)
+        sim_output = jax_to_torch(simulations[f"output_{simulation_key}_{i}"], 2)[..., 19:]
+        assert torch.allclose(sim_output, glm(sim_input))
+        # zeros_spk has another time point of nans because conv_kwargs isn't set
+        sim_output = jax_to_torch(simulations[f"output_{simulation_key}_{i}"], 2)[..., 20:]
+        assert torch.allclose(sim_output, glm_spk(sim_input)[..., 1:])
 
 
-po.set_seed(1)
+def prepare_penalty(stim, penalty):
+    # this remaps so that the minumum is at target, at which point are function is 0. this
+    # works as long as we have a finite target (if our target was -inf, it wouldn't)
+    def remap(x, target=0):
+        return (x-target).pow(2)
 
-# do plenoptic
-stim = jax_to_torch(np.load("nemos_stimulus.npz")["stimulus"], 2)[..., :200]
-met = run_met(stim, glm)
-met.save("met.pt")
-met_range = run_met(stim, glm, "range")
-met_range.save("met_range.pt")
+    def corr_penalty(metamer, target=0):
+        penalty = torch.corrcoef(torch.stack([stim.squeeze(), metamer.squeeze()], 0))[0, 1]
+        return remap(penalty, target)
 
-# this remaps so that the minumum is at target, at which point are function is 0. this
-# works as long as we have a finite target (if our target was -inf, it wouldn't)
-def remap(x, target=0):
-    return (x-target).pow(2)
+    if penalty == "corr":
+        penalty = lambda x: corr_penalty(x, 1) + po.regularize.penalize_range(x, (-.5, .5))
+    elif penalty == "uncorr":
+        penalty = lambda x: corr_penalty(x, 0) + po.regularize.penalize_range(x, (-.5, .5))
+    elif penalty == "anticorr":
+        penalty = lambda x: corr_penalty(x, -1) + po.regularize.penalize_range(x, (-.5, .5))
+    elif penalty == "mse":
+        penalty = lambda x: (x.squeeze() - stim.squeeze()).pow(2).mean()
 
-def corr_penalty(metamer, target=0):
-    penalty = torch.corrcoef(torch.stack([stim.squeeze(), metamer.squeeze()], 0))[0, 1]
-    return remap(penalty, target)
+    return penalty
 
-met_corr = run_met(stim, glm, lambda x: corr_penalty(x, 1) + po.regularize.penalize_range(x, (-.5, .5)))
-met_corr.save("met_corr.pt")
-met_uncorr = run_met(stim, glm, lambda x: corr_penalty(x, 0) + po.regularize.penalize_range(x, (-.5, .5)))
-met_uncorr.save("met_uncorr.pt")
-met_anticorr = run_met(stim, glm, lambda x: corr_penalty(x, -1) + po.regularize.penalize_range(x, (-.5, .5)))
-met_anticorr.save("met_anticorr.pt")
 
-# plots
-plot([met, met_range, met_corr, met_uncorr, met_anticorr],
-     ["Metamer", "Metamer+Range", "Metamer+Range+Corr","Metamer+Range+UnCorr", "Metamer+Range+AntiCorr"],
-     "glm.svg")
+@app.command()
+def synthesize(
+    glm_path: Annotated[Path, typer.Argument(help="Path to npz file created by nemos's save_params().")],
+    penalty: Annotated[Literal[None, "range", "corr", "uncorr", "anticorr", "mse"], typer.Option(help="Penalty to use.")] = None,
+    save_stem: Annotated[str, typer.Option(help="Stem to use for saving metamer")] = "met",
+    stimulus_path: Annotated[Path, typer.Argument(help="Path to npz file containing the stimulus.")] = "nemos_stimulus.npz",
+    seed: Annotated[int, typer.Option(help="RNG seed.")] = 1,
+):
+    """Synthesize. """
+    po.set_seed(seed)
+    glm = GLM.load_nemos_glm(glm_path)
 
-# do plenoptic with other model
-met = run_met(stim, glm_spk)
-met.save("met_spk.pt")
-met_range = run_met(stim, glm_spk, "range")
-met_range.save("met_range_spk.pt")
-met_corr = run_met(stim, glm_spk, lambda x: corr_penalty(x, 1) + po.regularize.penalize_range(x, (-.5, .5)))
-met_corr.save("met_corr_spk.pt")
-met_uncorr = run_met(stim, glm_spk, lambda x: corr_penalty(x, 0) + po.regularize.penalize_range(x, (-.5, .5)))
-met_uncorr.save("met_uncorr_spk.pt")
-met_anticorr = run_met(stim, glm_spk, lambda x: corr_penalty(x, -1) + po.regularize.penalize_range(x, (-.5, .5)))
-met_anticorr.save("met_anticorr_spk.pt")
+    # do plenoptic
+    stim = jax_to_torch(np.load(stimulus_path)["stimulus"], 2)[..., :200]
+    penalty = prepare_penalty(stim, penalty)
 
-# plots
-plot([met, met_range, met_corr, met_uncorr, met_anticorr],
-     ["Metamer", "Metamer+Range", "Metamer+Range+Corr","Metamer+Range+UnCorr", "Metamer+Range+AntiCorr"],
-     "glm_spk.svg")
+    met = prepare_met(stim, glm, penalty)
+    met.synthesize(1000, stop_criterion=1e-20)
+    met.save(f"{save_stem}.pt")
+
+
+@app.command()
+def plot(
+    glm_path: Annotated[Path, typer.Argument(help="Path to npz file created by nemos's save_params().")],
+    penalty: Annotated[Literal[None, "range", "corr", "uncorr", "anticorr", "mse"], typer.Option(help="Penalty to use.")] = None,
+    load_stem: Annotated[str, typer.Option(help="Stem to use for loading metamer")] = "met",
+    metamer_label: Annotated[str, typer.Option(help="Label to use in legend")] = "Metamer",
+):
+    """Plot synthesized metamers."""
+
+    glm = GLM.load_nemos_glm(glm_path)
+    # do plenoptic
+    stim = jax_to_torch(np.load(stimulus_path)["stimulus"], 2)[..., :200]
+    penalty = prepare_penalty(stim, penalty)
+    met = prepare_met(stim, glm, penalty)
+    met.load(f"{load_stem}.pt")
+    plot_met(met, metamer_label, f"{load_stem}.svg")
+
+
+if __name__ == "__main__":
+    app()
