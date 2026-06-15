@@ -1,0 +1,26 @@
+[project]
+name = "plenoptic-glm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+     "plenoptic>=2.0.0",
+     "torch",
+     "typer",
+]
+
+[project.optional-dependencies]
+nemos = [
+    "nemos_tutorials @ git+https://github.com/BalzaniEdoardo/nemos_glm_tutorials",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
