@@ -34,7 +34,7 @@ for s, sch, o, loss, l, lay in itertools.product(seeds, scheduler, optimizer, lo
         continue
     outfile = base_out / f"model-ResNet50-{lay}_img-parrot_{device}_seed-{s}_iter-{it}_loss-{loss}_opt-{o}_lr-{l:.1e}_sch-{sch}.pt"
     if outfile.exists():
-        cmd = f"python plot.py --loss {loss} --layer {lay} -f {outfile}"
+        cmd = f"python plot.py --loss {loss} --layer {lay} --plot -f {outfile}"
         cmd = f"{prefix} {cmd}"
         plot_cmds.append(cmd)
     else:

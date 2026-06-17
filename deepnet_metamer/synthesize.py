@@ -6,10 +6,12 @@ import pathlib
 import torch
 import torchvision
 import plenoptic as po
+import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
-def main(seed=None, layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.pt", device="cpu",
-         scheduler=None, optimizer="Adam", loss="mse"):
+def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.pt", device="cpu",
+         scheduler_name=None, optimizer_name="Adam", loss="mse"):
 
     if seed is not None:
         po.set_seed(seed)
@@ -24,7 +26,15 @@ def main(seed=None, layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.p
     model = po.models.FeatureExtractorModel(tv_model, layer, norm)
     po.remove_grad(model)
     model.to(device).to(torch.float64)
-    img = po.process.center_crop(po.data.parrot(False), tv_transform.crop_size[0])
+
+    if image == "parrot":
+        img = po.data.parrot(False)
+    elif image == "macaque":
+        # get this down to approximately the right size, so it looks good when cropped
+        img = po.load_images(po.data.fetch_data("Macaca_nigra_self-portrait.jpg"), False)
+        img = po.process.blur_downsample(img, 2)[...,:-60,:]
+
+    img = po.process.center_crop(img, tv_transform.crop_size[0])
     img = img.to(device).to(torch.float64)
     norm_rep = model(img).pow(2)
     init_img = 0.05 * torch.randn_like(img) + 0.5
@@ -50,15 +60,17 @@ def main(seed=None, layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.p
 
     met = po.Metamer(img, model, loss_function=loss)
     scheduler_kwargs = {}
-    if scheduler is not None:
-        if scheduler.startswith("StepLR"):
+    if scheduler_name is not None:
+        if scheduler_name.startswith("StepLR"):
             scheduler_kwargs = {"step_size": int(scheduler.split("-")[1]), "gamma": 0.5}
             scheduler = torch.optim.lr_scheduler.StepLR
         else:
-            raise ValueError(f"Not sure how to handle {scheduler=}")
-    if optimizer == "Adam":
+            raise ValueError(f"Not sure how to handle {scheduler_name=}")
+    else:
+        scheduler = None
+    if optimizer_name == "Adam":
         optimizer = torch.optim.Adam
-    elif optimizer == "LBFGS":
+    elif optimizer_name == "LBFGS":
         optimizer = torch.optim.LBFGS
     else:
         raise ValueError(f"Not sure how to handle {optimizer=}")
@@ -75,7 +87,16 @@ def main(seed=None, layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.p
              ha="center", transform=fig.axes[0].transAxes)
 
     fig.savefig(save_path.with_suffix(".svg"))
+    plt.close(fig)
+    ax = po.plot.synthesis_imshow(met)
+    ax.figure.savefig(save_path.with_suffix(".png"))
     po.plot.synthesis_animate(met).save(save_path.with_suffix(".mp4"))
+
+    data = {"image_name": "parrot", "model": "ResNet50", "layer": layer, "scheduler": scheduler_name, "optimizer": optimizer_name,
+            "max_iter": max_iter, "lr": lr, "device": device, "loss_func": loss.__name__, "image_path": save_path.with_suffix(".svg"),
+            "seed": seed, "loss": met.losses[-1].item(), "penalty": met.penalties[-1].item(),
+            "orig_image_category": orig_image_category, "met_image_category": met_image_category, "pearson_corr": pearson_corr}
+    pd.DataFrame(data, index=[0]).to_csv(save_path.with_suffix(".csv"), index=False)
 
 
 if __name__ == "__main__":
@@ -88,6 +109,7 @@ if __name__ == "__main__":
     parser.add_argument("--optimizer", "-o", default="Adam")
     parser.add_argument("--loss", default="mse")
     parser.add_argument("--layer", default="layer3")
+    parser.add_argument("--image", default="parrot")
     parser.add_argument("--device", "-d", default=0)
     parser.add_argument("--lr", "-l", default=0.01, type=float)
     parser.add_argument("--max_iter", "-n", default=2000, type=int)
