@@ -33,23 +33,24 @@ alt.Chart(df).mark_point().encode(
 df = df.with_columns(pl.col("image_path").map_elements(encode_base64, return_dtype=pl.String).alias("image"))
 
 select = alt.selection_point(name="select", on="click", empty=False)
-to_plot = df.filter(pl.col("loss_func") == "mse")
-chart = alt.Chart(to_plot).mark_point().encode(
-    x=alt.X("lr").scale(type="log"),
-    y=alt.Y("loss").scale(type="log"),
-    # y=alt.Y("pearson_corr").scale(zero=False),
-    color="scheduler:N", tooltip=["loss", "penalty", "met_image_category", "pearson_corr"],
-).facet(column="loss_func:N", row="layer").resolve_scale(y="independent").add_params(
-    select
-)
+for image in ["parrot", "macaque"]:
+    to_plot = df.filter((pl.col("loss_func") == "mse") & (pl.col("image_name") == image))
+    chart = alt.Chart(to_plot).mark_point().encode(
+        x=alt.X("lr").scale(type="log"),
+        y=alt.Y("loss").scale(type="log"),
+        # y=alt.Y("pearson_corr").scale(zero=False),
+        color="scheduler:N", tooltip=["loss", "penalty", "met_image_category", "pearson_corr"],
+    ).facet(column="loss_func:N", row="layer").resolve_scale(y="independent").add_params(
+        select
+    )
 
-img_faceted = alt.Chart(to_plot, height=250, width=250).mark_image().encode(
-    url='image'
-).facet(
-    alt.Facet('image', title='', header=alt.Header(labelFontSize=0))
-).transform_filter(
-    select
-)
-(chart | img_faceted).configure(
-    autosize=alt.AutoSizeParams(resize=True)
-).save("deepnet_metamers_results.html")
+    img_faceted = alt.Chart(to_plot, height=250, width=250).mark_image().encode(
+        url='image'
+    ).facet(
+        alt.Facet('image', title='', header=alt.Header(labelFontSize=0))
+    ).transform_filter(
+        select
+    )
+    (chart | img_faceted).configure(
+        autosize=alt.AutoSizeParams(resize=True)
+    ).save(f"deepnet_metamers_results-{image}.html")

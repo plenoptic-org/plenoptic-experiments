@@ -1,5 +1,21 @@
 """From Feather et al. 2023."""
 
+# %timeit for layer 2 model(img):
+# cpu, float32: 14 msec
+# gpu, float32: 4 msec
+# cpu, float64: 26 msec
+# gpu, float64: 22 msec
+# %timeit for layer 3 model(img):
+# cpu, float32: 26 msec
+# gpu, float32: 6 msec
+# cpu, float64: 43 msec
+# gpu, float64: 57 msec
+# %timeit for layer 4 model(img):
+# cpu, float32: 36 msec
+# gpu, float32: 8 msec
+# cpu, float64: 50 msec
+# gpu, float64: 90 msec
+
 import argparse
 import functools
 import pathlib
@@ -12,6 +28,9 @@ import matplotlib.pyplot as plt
 
 def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.pt", device="cpu",
          scheduler_name=None, optimizer_name="Adam", loss="mse"):
+
+    if max_iter < 100:
+        raise ValueError(f"max_iter must be at least 100, but got {max_iter=}")
 
     if seed is not None:
         po.set_seed(seed)
@@ -62,7 +81,7 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
     scheduler_kwargs = {}
     if scheduler_name is not None:
         if scheduler_name.startswith("StepLR"):
-            scheduler_kwargs = {"step_size": int(scheduler.split("-")[1]), "gamma": 0.5}
+            scheduler_kwargs = {"step_size": int(scheduler_name.split("-")[1]), "gamma": 0.5}
             scheduler = torch.optim.lr_scheduler.StepLR
         else:
             raise ValueError(f"Not sure how to handle {scheduler_name=}")
@@ -77,6 +96,7 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
     met.setup(init_img, optimizer_kwargs={"lr": lr}, scheduler_kwargs=scheduler_kwargs, scheduler=scheduler, optimizer=optimizer)
     met.synthesize(max_iter, store_progress=max_iter//100, **synth_kwargs)
     met.save(save_path)
+    print(met.metamer.device)
     fig = po.plot.synthesis_status(met)
 
     orig_image_category = get_category(met.image)
@@ -92,10 +112,15 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
     ax.figure.savefig(save_path.with_suffix(".png"))
     po.plot.synthesis_animate(met).save(save_path.with_suffix(".mp4"))
 
-    data = {"image_name": "parrot", "model": "ResNet50", "layer": layer, "scheduler": scheduler_name, "optimizer": optimizer_name,
+    if len(met_image_category) == 0:
+        met_image_category = "None"
+
+    data = {"image_name": image, "model": "ResNet50", "layer": layer, "scheduler": scheduler_name, "optimizer": optimizer_name,
             "max_iter": max_iter, "lr": lr, "device": device, "loss_func": loss.__name__, "image_path": save_path.with_suffix(".svg"),
             "seed": seed, "loss": met.losses[-1].item(), "penalty": met.penalties[-1].item(),
-            "orig_image_category": orig_image_category, "met_image_category": met_image_category, "pearson_corr": pearson_corr}
+            "orig_image_category": ",".join(orig_image_category), "met_image_category": ",".join(met_image_category),
+            "pearson_corr": pearson_corr}
+    print(data)
     pd.DataFrame(data, index=[0]).to_csv(save_path.with_suffix(".csv"), index=False)
 
 
@@ -124,4 +149,5 @@ if __name__ == "__main__":
     scheduler = args.pop("scheduler")
     if scheduler == "None":
         scheduler = None
-    main(device=device, scheduler=scheduler, **args)
+    optimizer = args.pop("optimizer")
+    main(device=device, scheduler_name=scheduler, optimizer_name=optimizer, **args)
