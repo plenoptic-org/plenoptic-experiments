@@ -27,7 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save_path="metamer.pt", device="cpu",
-         scheduler_name=None, optimizer_name="Adam", loss="mse"):
+         scheduler_name=None, optimizer_name="Adam", loss="mse", init_style="reduced"):
 
     if max_iter < 100:
         raise ValueError(f"max_iter must be at least 100, but got {max_iter=}")
@@ -56,7 +56,10 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
     img = po.process.center_crop(img, tv_transform.crop_size[0])
     img = img.to(device).to(torch.float64)
     norm_rep = model(img).pow(2)
-    init_img = 0.05 * torch.randn_like(img) + 0.5
+    if init_style == "reduced":
+        init_img = 0.05 * torch.randn_like(img) + 0.5
+    elif init_style == "full":
+        init_img = torch.rand_like(img)
 
     def norm_mse(synth_rep, ref_rep, epsilon=1e-10):
         loss = (ref_rep - synth_rep).pow(2) / (norm_rep + epsilon)
@@ -119,7 +122,7 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
             "max_iter": max_iter, "lr": lr, "device": device, "loss_func": loss.__name__, "image_path": save_path.with_suffix(".svg"),
             "seed": seed, "loss": met.losses[-1].item(), "penalty": met.penalties[-1].item(),
             "orig_image_category": ",".join(orig_image_category), "met_image_category": ",".join(met_image_category),
-            "pearson_corr": pearson_corr}
+            "pearson_corr": pearson_corr, "init_style": init_style}
     print(data)
     pd.DataFrame(data, index=[0]).to_csv(save_path.with_suffix(".csv"), index=False)
 
@@ -139,6 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", "-l", default=0.01, type=float)
     parser.add_argument("--max_iter", "-n", default=2000, type=int)
     parser.add_argument("--save_path", '-f', default="metamer.pt")
+    parser.add_argument("--init_style", default="reduced")
     args = vars(parser.parse_args())
     print(args)
     device = args.pop("device")

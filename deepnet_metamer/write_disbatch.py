@@ -22,11 +22,11 @@ else:
 commands = ["set -euxo pipefail"]
 prefix = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic"
 
-scheduler = ["StepLR-5000", "StepLR-3000", "StepLR-1000"]
+scheduler = ["StepLR-5000", "StepLR-3000", "StepLR-1000", None]
 optimizer = ["Adam"]
 loss_func = ["mse"]
 layer = ["layer4", "layer2", "layer3"]
-lr = [3e-2, 1e-2, 1e-1]
+lr = [1e-3, 3e-3, 3e-2, 1e-2, 1e-1]
 plot_cmds = []
 synth_cmds = []
 images = ["macaque"]
