@@ -43,6 +43,7 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
     tv_transform = weights.transforms()
     norm = torchvision.transforms.Normalize(tv_transform.mean, tv_transform.std)
     model = po.models.FeatureExtractorModel(tv_model, layer, norm)
+    print(norm)
     po.remove_grad(model)
     model.to(device).to(torch.float64)
 
@@ -50,8 +51,8 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
         img = po.data.parrot(False)
     elif image == "macaque":
         # get this down to approximately the right size, so it looks good when cropped
-        img = po.load_images(po.data.fetch_data("Macaca_nigra_self-portrait.jpg"), False)
-        img = po.process.blur_downsample(img, 2)[...,:-60,:]
+        img = po.data.macaque()
+        img = po.process.blur_downsample(img, 2)[...,:-59,:]
 
     img = po.process.center_crop(img, tv_transform.crop_size[0])
     img = img.to(device).to(torch.float64)
@@ -60,6 +61,7 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
         init_img = 0.05 * torch.randn_like(img) + 0.5
     elif init_style == "full":
         init_img = torch.rand_like(img)
+    print(init_img.min(), init_img.mean(), init_img.max())
 
     def norm_mse(synth_rep, ref_rep, epsilon=1e-10):
         loss = (ref_rep - synth_rep).pow(2) / (norm_rep + epsilon)
@@ -90,13 +92,16 @@ def main(seed=None, image="parrot", layer="layer3", lr=0.01, max_iter=1000, save
             raise ValueError(f"Not sure how to handle {scheduler_name=}")
     else:
         scheduler = None
+    optimizer_kwargs = {"lr": lr}
     if optimizer_name == "Adam":
         optimizer = torch.optim.Adam
+        optimizer_kwargs["amsgrad"] = False
     elif optimizer_name == "LBFGS":
         optimizer = torch.optim.LBFGS
     else:
         raise ValueError(f"Not sure how to handle {optimizer=}")
-    met.setup(init_img, optimizer_kwargs={"lr": lr}, scheduler_kwargs=scheduler_kwargs, scheduler=scheduler, optimizer=optimizer)
+    print(scheduler, scheduler_kwargs, optimizer, lr, synth_kwargs)
+    met.setup(init_img, optimizer_kwargs=optimizer_kwargs, scheduler_kwargs=scheduler_kwargs, scheduler=scheduler, optimizer=optimizer)
     met.synthesize(max_iter, store_progress=max_iter//100, **synth_kwargs)
     met.save(save_path)
     print(met.metamer.device)

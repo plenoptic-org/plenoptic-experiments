@@ -40,7 +40,7 @@ for image in ["parrot", "macaque"]:
         y=alt.Y("loss").scale(type="log"),
         # y=alt.Y("pearson_corr").scale(zero=False),
         color="scheduler:N", tooltip=["loss", "penalty", "met_image_category", "pearson_corr"],
-    ).facet(column="loss_func:N", row="layer").resolve_scale(y="independent").add_params(
+    ).facet(column="init_style:N", row="layer").resolve_scale(y="independent").add_params(
         select
     )
 

@@ -38,7 +38,7 @@ for s, sch, o, loss, l, lay, img, init in itertools.product(seeds, scheduler, op
         cmd = f"{prefix} {cmd}"
         plot_cmds.append(cmd)
     else:
-        cmd = f"python synthesize.py -d {device} -s {s} -n {it} -o {o} --image {img} -l {l:.1e} -c {sch} --loss {loss} --layer {lay} -f {outfile}"
+        cmd = f"python synthesize.py -d {device} -s {s} -n {it} -o {o} --image {img} -l {l:.1e} -c {sch} --loss {loss} --layer {lay} --init_style {init} -f {outfile}"
         cmd = f"({prefix} {cmd}) &> {outfile.with_suffix('.log')}"
         synth_cmds.append(cmd)
 
