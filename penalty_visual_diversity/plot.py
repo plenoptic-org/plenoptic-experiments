@@ -50,11 +50,11 @@ def plot(met, met_loss, met_penalty, save_path):
     axes[1, 0].semilogy(met.store_progress * np.arange(len(met_penalty)),
                         po.to_numpy(met_penalty), label="Penalty")
     axes[1, 0].legend()
-    po.imshow(met.image.mean(0, keepdim=True), ax=axes[0, 0], title="Target image", vrange=(0, 1))
-    po.imshow(met.saved_metamer[0, :1], ax=axes[0, 1], title="Initial image 0", vrange=(0, 1))
-    po.imshow(met.saved_metamer[0, 1:], ax=axes[1, 1], title="Initial image 1", vrange=(0, 1))
-    po.imshow(met.metamer[:1], ax=axes[0, 2], title="Metamer 0", vrange=(0, 1))
-    po.imshow(met.metamer[1:], ax=axes[1, 2], title="Metamer 1", vrange=(0, 1))
+    po.plot.imshow(met.image.mean(0, keepdim=True), ax=axes[0, 0], title="Target image", vrange=(0, 1))
+    po.plot.imshow(met.saved_metamer[0, :1], ax=axes[0, 1], title="Initial image 0", vrange=(0, 1))
+    po.plot.imshow(met.saved_metamer[0, 1:], ax=axes[1, 1], title="Initial image 1", vrange=(0, 1))
+    po.plot.imshow(met.metamer[:1], ax=axes[0, 2], title="Metamer 0", vrange=(0, 1))
+    po.plot.imshow(met.metamer[1:], ax=axes[1, 2], title="Metamer 1", vrange=(0, 1))
     fig.savefig(save_path)
 
 

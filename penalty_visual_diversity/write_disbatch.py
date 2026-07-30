@@ -22,11 +22,11 @@ else:
 commands = ["set -euxo pipefail"]
 prefix = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic"
 
-penalty = ["spyr"]
-comb_func = ["exp"] + ["".join(p) for p in itertools.product(["exp", ""], ["maskall", "masklow", "maskhigh", "maskvert", "maskdiag"])]
-penalty = ['-'.join(p) for p in itertools.product(penalty, comb_func)]
-penalty = ["none", "nlpd-sse", "spyr-expmaskall", "spyr-expmaskvert", "spyr-expmaskhigh"]
-imgs = ["einstein-crop128", "einstein-crop64", "einstein-blur1", "einstein-blur2"]
+penalty = ["pyiqa-dists_exp", "spyr-expmaskvert", "pyiqa-lpips_exp"]
+# comb_func = ["exp"] + ["".join(p) for p in itertools.product(["exp", ""], ["maskall", "masklow", "maskhigh", "maskvert", "maskdiag"])]
+# penalty = ['-'.join(p) for p in itertools.product(penalty, comb_func)]
+# penalty = ["none", "nlpd-sse", "spyr-expmaskall", "spyr-expmaskvert", "spyr-expmaskhigh"]
+imgs = ["einstein-blur1"]
 for img, m, p, sd in itertools.product(imgs, models, penalty, seeds):
     if m == "PS":
         it = 1000
@@ -41,10 +41,10 @@ for img, m, p, sd in itertools.product(imgs, models, penalty, seeds):
         penalty_lambda = [1]
 
     for l in penalty_lambda:
-        outfile = base_out / f"model-{m}_img-{img}_penalty-{p}_lambda-{l:.00e}_{device}_seed-{sd}_iter-{it}.pt"
+        outfile = base_out / f"model-{m}_img-{img}_penalty-{p}_lambda-{l:.00e}_{device}_seed-{sd}_two-stage_iter-{it}.pt"
         if outfile.exists() or outfile.with_name(outfile.name.replace("cpu", "0")).exists():
             continue
-        cmd = f"python synthesize.py -m {m} -i {img} -p {p} -l {l} -d {device} -s {sd} -n {it} -f {outfile}"
+        cmd = f"uv run --with pyiqa --with plenoptic --with pandas python synthesize.py --two-stage -m {m} -i {img} -p {p} -l {l} -d {device} -s {sd} -n {it} -f {outfile}"
         cmd = f"({prefix} {cmd}) &> {outfile.with_suffix('.log')}"
         commands.append(cmd)
 
