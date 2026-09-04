@@ -1,14 +1,12 @@
+import csv
+from pathlib import Path
+
 import numpy as np
 import scipy.io as sio
 import torch
 
 import plenoptic as po
 
-# This is an exploratory script. It is intentionally organized as independent,
-# clearly labeled sections so it can be pasted into IPython or run with `%run -i`.
-# Each section leaves its converted MATLAB array, plenoptic array, and difference
-# in the namespace for further inspection.
-#
 # The summaries use plenoptic's saved necessary-statistic masks. MATLAB retains
 # symmetric and otherwise redundant entries that plenoptic intentionally drops.
 
@@ -33,6 +31,7 @@ n_channels = 3
 center = spatial_corr_width // 2
 
 np.set_printoptions(precision=6, suppress=True, linewidth=120)
+difference_summaries = []
 
 
 def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
@@ -56,9 +55,8 @@ def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
 
     Returns
     -------
-    difference : numpy.ndarray
-        The full elementwise MATLAB-minus-plenoptic difference. Entries omitted
-        from the printed summary are retained for further inspection.
+    max_absolute_difference, max_relative_difference : float
+        Maximum absolute and relative differences among the selected entries.
     """
     matlab_array = np.asarray(matlab_array)
     plenoptic_array = np.asarray(plenoptic_array)
@@ -75,18 +73,15 @@ def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
     relative_difference = absolute_difference / np.maximum(
         relative_scale, np.finfo(float).eps
     )
+    max_absolute_difference = absolute_difference.max()
+    max_relative_difference = relative_difference.max()
 
     print(f"\n{name}")
     print(f"  compared values: {selected.sum()}")
-    print(f"  maximum absolute difference: {absolute_difference.max():.6g}")
+    print(f"  maximum absolute difference: {max_absolute_difference:.6g}")
     print(f"  mean absolute difference:    {absolute_difference.mean():.6g}")
-    print(f"  maximum relative difference: {relative_difference.max():.6g}")
-    return difference
-
-
-# Relative differences can look large when both values are extremely close to
-# zero. Always inspect the maximum absolute difference and the corresponding
-# entries of the returned difference array before treating that as a mismatch.
+    print(f"  maximum relative difference: {max_relative_difference:.6g}")
+    return max_absolute_difference, max_relative_difference
 
 
 # =============================================================================
@@ -98,12 +93,15 @@ def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
 
 plenoptic_stat_name = "image"
 matlab_stat_name = "im0"
+
 matlab_image = np.transpose(matlab[matlab_stat_name], (2, 0, 1))[None].astype(
     np.float64
 )
 plenoptic_image = saved_plenoptic[plenoptic_stat_name]
-image_difference = compare_statistic(
-    "Input image (BCHW, 0--255)", matlab_image, plenoptic_image
+image_max_absolute_difference, image_max_relative_difference = compare_statistic(
+    "Input image (BCHW, 0--255)",
+    matlab_image,
+    plenoptic_image,
 )
 
 plenoptic_stat_name = "transformed_image"
@@ -112,8 +110,11 @@ matlab_pca_image = np.transpose(matlab[matlab_stat_name], (2, 0, 1))[None]
 plenoptic_pca_mean = saved_plenoptic["pca"]["mean"]
 plenoptic_pca_matrix = saved_plenoptic["pca"]["matrix"]
 plenoptic_pca_image = saved_plenoptic["pca"][plenoptic_stat_name]
-pca_image_difference = compare_statistic(
-    "PCA-transformed image", matlab_pca_image, plenoptic_pca_image
+
+pca_max_absolute_difference, pca_max_relative_difference = compare_statistic(
+    "PCA-transformed image",
+    matlab_pca_image,
+    plenoptic_pca_image,
 )
 
 # =============================================================================
@@ -137,10 +138,20 @@ matlab_stat_name = "pixelStats"
 matlab_pixel_statistics = matlab_representation[matlab_stat_name][None]
 plenoptic_pixel_statistics = plenoptic_representation[plenoptic_stat_name]
 
-pixel_statistics_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "RGB pixel statistics",
     matlab_pixel_statistics,
     plenoptic_pixel_statistics,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "i.c",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # Inspect one column at a time when a mismatch appears:
@@ -163,10 +174,20 @@ matlab_stat_name = "pixelStatsPCA"
 matlab_skew_transformed = matlab_representation[matlab_stat_name][:, 0][None]
 plenoptic_skew_transformed = plenoptic_representation[plenoptic_stat_name]
 
-skew_transformed_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "PCA-transformed skewness",
     matlab_skew_transformed,
     plenoptic_skew_transformed,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "ix",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -181,10 +202,21 @@ matlab_stat_name = "pixelStatsPCA"
 matlab_kurtosis_transformed = matlab_representation[matlab_stat_name][:, 1][None]
 plenoptic_kurtosis_transformed = plenoptic_representation[plenoptic_stat_name]
 kurtosis_transformed_mask = plenoptic_necessary_stats[plenoptic_stat_name]
-kurtosis_transformed_difference = compare_statistic(
+
+max_absolute_difference, max_relative_difference = compare_statistic(
     "PCA-transformed kurtosis",
     matlab_kurtosis_transformed,
     plenoptic_kurtosis_transformed,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "ix",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # MATLAB pixelStatsPCA columns 3 and 4 contain PCA minima and maxima. Plenoptic
@@ -219,11 +251,21 @@ matlab_auto_correlation_transformed = (
 plenoptic_auto_correlation_transformed = plenoptic_representation[plenoptic_stat_name]
 
 auto_correlation_transformed_mask = plenoptic_necessary_stats[plenoptic_stat_name]
-auto_correlation_transformed_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "PCA-image autocorrelation",
     matlab_auto_correlation_transformed,
     plenoptic_auto_correlation_transformed,
     auto_correlation_transformed_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "viii",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -256,10 +298,20 @@ matlab_magnitude_std = np.sqrt(
 
 plenoptic_magnitude_std = plenoptic_representation[plenoptic_stat_name]
 
-magnitude_std_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Pyramid-magnitude standard deviation",
     matlab_magnitude_std,
     plenoptic_magnitude_std,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "iii-v",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -277,8 +329,7 @@ matlab_cousin_magnitude_covariance = matlab_representation[matlab_stat_name]
 # it by the square root of the outer product of its diagonal variances to
 # obtain correlations we can compare to plenoptic
 matlab_cross_orientation_magnitude_denominator = np.sqrt(
-    matlab_magnitude_variance[:, None, :]
-    * matlab_magnitude_variance[None, :, :]
+    matlab_magnitude_variance[:, None, :] * matlab_magnitude_variance[None, :, :]
 )
 matlab_cross_orientation_correlation_magnitude = (
     matlab_cousin_magnitude_covariance / matlab_cross_orientation_magnitude_denominator
@@ -291,11 +342,21 @@ cross_orientation_correlation_magnitude_mask = plenoptic_necessary_stats[
     plenoptic_stat_name
 ]
 
-cross_orientation_correlation_magnitude_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Joint cross-orientation magnitude correlation",
     matlab_cross_orientation_correlation_magnitude,
     plenoptic_cross_orientation_correlation_magnitude,
     cross_orientation_correlation_magnitude_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "iv",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -349,7 +410,7 @@ parent_magnitude_variance_joint = parent_magnitude_variance.flatten(1, 2).numpy(
 
 # Compute the normalization factors to turn into correlation
 matlab_cross_scale_magnitude_denominator = np.sqrt(
-    magnitude_variance_joint[:, :, None, :-1] # Discard last scale
+    magnitude_variance_joint[:, :, None, :-1]  # Discard last scale
     * parent_magnitude_variance_joint[:, None, :, :]
 )
 matlab_cross_scale_correlation_magnitude = (
@@ -362,11 +423,21 @@ plenoptic_cross_scale_correlation_magnitude = plenoptic_representation[
 ]
 cross_scale_correlation_magnitude_mask = plenoptic_necessary_stats[plenoptic_stat_name]
 
-cross_scale_correlation_magnitude_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Joint cross-scale magnitude correlation",
     matlab_cross_scale_correlation_magnitude,
     plenoptic_cross_scale_correlation_magnitude,
     cross_scale_correlation_magnitude_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "v",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -410,11 +481,21 @@ plenoptic_cross_orientation_correlation_real = plenoptic_representation[
 ]
 cross_orientation_correlation_real_mask = plenoptic_necessary_stats[plenoptic_stat_name]
 
-cross_orientation_correlation_real_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Joint same-scale real correlation",
     matlab_cross_orientation_correlation_real,
     plenoptic_cross_orientation_correlation_real,
     cross_orientation_correlation_real_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "x",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -467,11 +548,21 @@ matlab_cross_scale_correlation_real = (
 plenoptic_cross_scale_correlation_real = plenoptic_representation[plenoptic_stat_name]
 cross_scale_correlation_real_mask = plenoptic_necessary_stats[plenoptic_stat_name]
 
-cross_scale_correlation_real_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Joint cross-scale real/phase correlation",
     matlab_cross_scale_correlation_real,
     plenoptic_cross_scale_correlation_real,
     cross_scale_correlation_real_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "vi",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -490,11 +581,21 @@ matlab_color_covariance = matlab_representation[matlab_stat_name][None]
 plenoptic_color_covariance = plenoptic_representation[plenoptic_stat_name]
 color_covariance_mask = plenoptic_necessary_stats[plenoptic_stat_name]
 
-color_covariance_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "RGB color covariance",
     matlab_color_covariance,
     plenoptic_color_covariance,
     color_covariance_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "vii",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # =============================================================================
@@ -521,11 +622,21 @@ matlab_cross_correlation_lowpass = (
 plenoptic_cross_correlation_lowpass = plenoptic_representation[plenoptic_stat_name]
 cross_correlation_lowpass_mask = plenoptic_necessary_stats[plenoptic_stat_name]
 
-cross_correlation_lowpass_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Shifted-lowpass joint correlation",
     matlab_cross_correlation_lowpass,
     plenoptic_cross_correlation_lowpass,
     cross_correlation_lowpass_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "xi",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # =============================================================================
@@ -565,11 +676,21 @@ cross_correlation_coarsest_scale_lowpass_mask = plenoptic_necessary_stats[
     plenoptic_stat_name
 ]
 
-cross_correlation_coarsest_scale_lowpass_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Coarsest-real/shifted-lowpass joint correlation",
     matlab_cross_correlation_coarsest_scale_lowpass,
     plenoptic_cross_correlation_coarsest_scale_lowpass,
     cross_correlation_coarsest_scale_lowpass_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "xii",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # =============================================================================
@@ -590,10 +711,20 @@ matlab_stat_name = "varianceHPR"
 matlab_var_highpass_residual = matlab_representation[matlab_stat_name][None, :, None]
 plenoptic_var_highpass_residual = plenoptic_representation[plenoptic_stat_name]
 
-var_highpass_residual_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Highpass-residual variance",
     matlab_var_highpass_residual,
     plenoptic_var_highpass_residual,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "i.b",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -612,10 +743,20 @@ pixel_lowpass_statistics = matlab_representation[matlab_stat_name]
 matlab_skew_reconstructed = pixel_lowpass_statistics[: n_scales + 1].T[None]
 plenoptic_skew_reconstructed = plenoptic_representation[plenoptic_stat_name]
 
-skew_reconstructed_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Reconstructed-image skewness",
     matlab_skew_reconstructed,
     plenoptic_skew_reconstructed,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "i.a",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # If only a low-energy band differs, inspect whether MATLAB emitted 0 while
@@ -635,10 +776,20 @@ pixel_lowpass_statistics = matlab_representation[matlab_stat_name]
 matlab_kurtosis_reconstructed = pixel_lowpass_statistics[n_scales + 1 :].T[None]
 plenoptic_kurtosis_reconstructed = plenoptic_representation[plenoptic_stat_name]
 
-kurtosis_reconstructed_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Reconstructed-image kurtosis",
     matlab_kurtosis_reconstructed,
     plenoptic_kurtosis_reconstructed,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "i.a",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 # The analogous low-energy default is kurtosis 3.
@@ -666,11 +817,21 @@ matlab_std_reconstructed = np.sqrt(matlab_variance_reconstructed)
 plenoptic_std_reconstructed = plenoptic_representation[plenoptic_stat_name]
 std_reconstructed_mask = plenoptic_necessary_stats[plenoptic_stat_name]
 
-std_reconstructed_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Reconstructed-image standard deviation",
     matlab_std_reconstructed,
     plenoptic_std_reconstructed,
     std_reconstructed_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "ii",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -696,11 +857,21 @@ matlab_auto_correlation_reconstructed = (
 )
 plenoptic_auto_correlation_reconstructed = plenoptic_representation[plenoptic_stat_name]
 auto_correlation_reconstructed_mask = plenoptic_necessary_stats[plenoptic_stat_name]
-auto_correlation_reconstructed_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Reconstructed-image autocorrelation",
     matlab_auto_correlation_reconstructed,
     plenoptic_auto_correlation_reconstructed,
     auto_correlation_reconstructed_mask,
+)
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "ii",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
 )
 
 
@@ -726,9 +897,38 @@ matlab_auto_correlation_magnitude = (
 )
 plenoptic_auto_correlation_magnitude = plenoptic_representation[plenoptic_stat_name]
 auto_correlation_magnitude_mask = plenoptic_necessary_stats[plenoptic_stat_name]
-auto_correlation_magnitude_difference = compare_statistic(
+max_absolute_difference, max_relative_difference = compare_statistic(
     "Pyramid-magnitude autocorrelation",
     matlab_auto_correlation_magnitude,
     plenoptic_auto_correlation_magnitude,
     auto_correlation_magnitude_mask,
 )
+
+difference_summaries.append(
+    [
+        matlab_stat_name,
+        plenoptic_stat_name,
+        "iii",
+        max_absolute_difference,
+        max_relative_difference,
+    ]
+)
+
+# Save one summary row for each comparison above
+results_dir = Path("results")
+results_dir.mkdir(exist_ok=True)
+results_path = results_dir / "matlab_plen_differences.csv"
+with results_path.open("w", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(
+        [
+            "matlab_name",
+            "plenoptic_name",
+            "vacher_statistic",
+            "max_absolute_difference",
+            "max_relative_difference",
+        ]
+    )
+    writer.writerows(difference_summaries)
+
+print(f"\nSaved difference summaries to {results_path}")
