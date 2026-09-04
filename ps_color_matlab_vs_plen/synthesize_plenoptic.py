@@ -22,34 +22,23 @@ n_synthesis_iterations = 100
 def color_matched_noise(target):
     """Gaussian noise with exactly the target RGB population covariance and mean."""
     po.set_seed(seed)
-    noise = torch.randn_like(target)
-    noise_pixels = noise.permute(0, 2, 3, 1).reshape(-1, 3)
-    noise_pixels = noise_pixels - noise_pixels.mean(0)
-    noise_covariance = noise_pixels.mT @ noise_pixels / noise_pixels.shape[0]
-    noise_eigenvalues, noise_eigenvectors = torch.linalg.eigh(noise_covariance)
-    whitening = (
-        noise_eigenvectors
-        @ torch.diag(noise_eigenvalues.rsqrt())
-        @ noise_eigenvectors.mT
-    )
 
-    target_pixels = target.permute(0, 2, 3, 1).reshape(-1, 3)
-    target_mean = target_pixels.mean(0)
+    target_pixels = target.flatten(2)
+    n_pixels = target_pixels.shape[-1]
+    target_mean = target_pixels.mean(dim=-1, keepdim=True)
     target_pixels = target_pixels - target_mean
-    target_covariance = target_pixels.mT @ target_pixels / target_pixels.shape[0]
+    target_covariance = target_pixels @ target_pixels.mT / n_pixels
+
+    noise = torch.randn_like(target_pixels)
     target_eigenvalues, target_eigenvectors = torch.linalg.eigh(target_covariance)
-    coloring = (
+    target_colorizer = (
         target_eigenvectors
-        @ torch.diag(target_eigenvalues.sqrt())
+        @ torch.diag_embed(target_eigenvalues.clamp_min(0).sqrt())
         @ target_eigenvectors.mT
     )
 
-    noise_pixels = noise_pixels @ whitening @ coloring + target_mean
-    return (
-        noise_pixels.reshape(target.shape[0], *target.shape[-2:], 3)
-        .permute(0, 3, 1, 2)
-        .contiguous()
-    )
+    initial = target_colorizer @ noise + target_mean
+    return initial.reshape_as(target)
 
 
 # Load the image in the 0--1 range expected by plenoptic
