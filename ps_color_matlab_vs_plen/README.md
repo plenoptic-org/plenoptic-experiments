@@ -20,4 +20,26 @@ This validation suite has the following components:
 - `synthesize_plenoptic.py`: Synthesize metamers with plenoptic, using the PCA and OPC color transforms and both the default and color-matched initializations. It doesn't do any Matlab matching. Saves the metamers in `plenoptic_metamers/`.
 - `compare_statistics.py`: Compares the Matlab and the plenoptic color Portilla-Simoncelli statistics, going family by family. Essentially, it converts Matlab statistics, that are covariances, into correlations like the ones computed by `plenoptic`. The script just prints the relative and absolute differences between the two implementations statistics.
 
-To run the analysis, first set `image_path` in `prepare_texture.py` to an available image. Adjust the image names in the other scripts as well. Then run, in order, `prepare_texture.py`, `run_matlab.m`, `synthesize_plenoptic.py`, `compute_stats_plenoptic.py`, and finally `compare_statistics.py`.
+Run the analysis from `ps_color_matlab_vs_plen/`. First set `image_path` in `prepare_texture.py` to an available image. Adjust the image names in the other scripts as well. Then run, in order, `prepare_texture.py`, `run_matlab.m`, `synthesize_plenoptic.py`, `compute_stats_plenoptic.py`, and finally `compare_statistics.py`.
+
+## Getting the MATLAB version of the code
+
+Before running the analysis, download the Matlab dependencies into
+`plenoptic-experiments/ps_color_matlab_vs_plen/matlab_ps_code/`:
+
+- [matlabPyrTools](https://github.com/LabForComputationalVision/matlabPyrTools): the pyramid tools.
+- [textureSynth](https://github.com/LabForComputationalVision/textureSynth): the grayscale texture model and shared functions.
+- [colorTextureSynth](https://www.cns.nyu.edu/pub/eero/colorTextureSynth.tgz): the color texture model.
+
+One option is to run the following from the `plenoptic-experiments` repository root:
+
+```sh
+cd ps_color_matlab_vs_plen
+mkdir -p matlab_ps_code
+git clone https://github.com/LabForComputationalVision/matlabPyrTools.git matlab_ps_code/matlabPyrTools
+git clone https://github.com/LabForComputationalVision/textureSynth.git matlab_ps_code/textureSynth
+curl -fL https://www.cns.nyu.edu/pub/eero/colorTextureSynth.tgz -o matlab_ps_code/colorTextureSynth.tgz
+tar -xzf matlab_ps_code/colorTextureSynth.tgz -C matlab_ps_code
+```
+
+This should download the three dependencies into `plenoptic-experiments/ps_color_matlab_vs_plen/matlab_ps_code`. The MATLAB script `run_matlab.m` adds `matlab_ps_code/` and its subdirectories to the Matlab path automatically.

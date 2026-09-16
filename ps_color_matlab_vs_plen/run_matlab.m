@@ -2,6 +2,9 @@
 % useful data like the PCA matrix and the PCA transformed image.
 % Synthesize a metamer with the original Matlab procedure
 
+% Run from ps_color_matlab_vs_plen; see README for dependency setup.
+addpath(genpath('matlab_ps_code'));
+
 image_name = 'DSCF4315';
 image_path = fullfile('inputs', [image_name '.tif']);
 statistics_dir = 'matlab_statistics';
