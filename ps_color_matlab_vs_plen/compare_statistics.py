@@ -69,10 +69,7 @@ def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
     matlab_values = matlab_array[selected]
     plenoptic_values = plenoptic_array[selected]
     absolute_difference = np.abs(difference[selected])
-    relative_scale = np.maximum(np.abs(matlab_values), np.abs(plenoptic_values))
-    relative_difference = absolute_difference / np.maximum(
-        relative_scale, np.finfo(float).eps
-    )
+    relative_difference = absolute_difference / np.abs(matlab_values)
     max_absolute_difference = absolute_difference.max()
     max_relative_difference = relative_difference.max()
 
