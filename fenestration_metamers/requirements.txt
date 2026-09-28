@@ -1,5 +1,0 @@
-fenestration
-plenoptic
-typer
-pandas
-altair
