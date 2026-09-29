@@ -96,6 +96,8 @@ def init_metamer(
         mod = mod.replace("crop", "")
         img = eval(f"po.data.{img}()")
         img = po.process.center_crop(img, int(mod))
+    else:
+        img = eval(f"po.data.{img}()")
     img = img.to(device).to(torch.float64)
     po.set_seed(init_seed)
     if model == "LGC":

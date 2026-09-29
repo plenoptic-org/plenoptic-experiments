@@ -24,7 +24,7 @@ commands = []
 prefix = "PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic"
 
 imgs = ["einstein-blur1", "einstein"]
-max_iter = 6000
+max_iter = 1000
 penalty_lambda = {
     "mse": [1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2],
     "l2_norm": [1e-1, 1e0, 1e1, 1e2, 1e3, 1e4],
