@@ -18,43 +18,36 @@ import plenoptic as po
 def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
     """Compare corresponding MATLAB and plenoptic statistic arrays.
 
-    Both arrays are converted to NumPy arrays and subtracted as MATLAB minus
-    plenoptic. The printed summary includes only entries that are finite in
-    both arrays and, when supplied, selected by ``necessary_mask``. The mask is
-    broadcast to the shape of the difference array, matching how plenoptic's
-    saved necessary-statistic masks apply across batch dimensions.
-
     Parameters
     ----------
     name : str
         Label printed above the comparison summary.
     matlab_array, plenoptic_array : array-like
-        Corresponding statistic arrays with broadcast-compatible shapes.
+        Corresponding statistic arrays with the same shape.
     necessary_mask : array-like or None
         Boolean mask selecting the non-redundant values to summarize. If
-        ``None``, all values that are finite in both arrays are included.
+        ``None``, all values are included.
 
     Returns
     -------
     max_absolute_difference, max_relative_difference : float
         Maximum absolute and relative differences among the selected entries.
     """
-    matlab_array = np.asarray(matlab_array)
-    plenoptic_array = np.asarray(plenoptic_array)
-    difference = matlab_array - plenoptic_array
+    matlab_values = np.asarray(matlab_array)
+    plenoptic_values = np.asarray(plenoptic_array)
 
-    selected = np.isfinite(matlab_array) & np.isfinite(plenoptic_array)
     if necessary_mask is not None:
-        selected &= np.broadcast_to(necessary_mask, difference.shape)
+        selected = np.broadcast_to(necessary_mask, matlab_values.shape)
+        matlab_values = matlab_values[selected]
+        plenoptic_values = plenoptic_values[selected]
 
-    matlab_values = matlab_array[selected]
-    absolute_difference = np.abs(difference[selected])
+    absolute_difference = np.abs(matlab_values - plenoptic_values)
     relative_difference = absolute_difference / np.abs(matlab_values)
     max_absolute_difference = absolute_difference.max()
     max_relative_difference = relative_difference.max()
 
     print(f"\n{name}")
-    print(f"  compared values: {selected.sum()}")
+    print(f"  compared values: {matlab_values.size}")
     print(f"  maximum absolute difference: {max_absolute_difference:.6g}")
     print(f"  mean absolute difference:    {absolute_difference.mean():.6g}")
     print(f"  maximum relative difference: {max_relative_difference:.6g}")
