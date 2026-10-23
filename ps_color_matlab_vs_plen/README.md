@@ -14,14 +14,28 @@ it does two things:
 - It synthesizes textures metamers with both Matlab and plenoptic.
 
 This validation suite has the following components:
-- `prepare_texture.py`: Takes a larger image and turns it into a 128 x 128 image saved in `inputs/` for the analyses to consume
+
+- `prepare_texture.py`: Center-crops texture images to 256 x 256 and saves into `inputs/`.
 - `run_matlab.m`: Computes the color statistics of the image, and generates a metamer. Statistics are saved in `matlab_statistics/`, and the metamer in `matlab_metamers/`. Also saves the PCA parameters for exact reproducibility in Python.
 - `compute_stats_plenoptic.py`: Computes the color Portilla-Simoncelli statistics with the new implementation. It loads and uses the PCA parameters obtained by Matlab, for full reproducibility. Saves statistics in `plenoptic_statistics/`.
 - `synthesize_plenoptic.py`: Synthesize metamers with plenoptic, using the PCA and OPC color transforms and both the default and color-matched initializations. It doesn't do any Matlab matching. Saves the metamers in `plenoptic_metamers/`.
 - `color_test_helpers.py`: Extends plenoptic's (pre PR 482) test helpers with shared grayscale/color normalization functions and a MATLAB color dictionary mapper.
 - `compare_statistics.py`: Loads the saved statistics, calls the conversion helpers, and prints the absolute and relative differences for each statistic family. Saves the summaries to `results/matlab_plen_differences.csv`.
 
-Run the analysis from `ps_color_matlab_vs_plen/`. First set `image_path` in `prepare_texture.py` to an available image. Adjust the image names in the other scripts as well. Then run, in order, `prepare_texture.py`, `run_matlab.m`, `synthesize_plenoptic.py`, `compute_stats_plenoptic.py`, and finally `compare_statistics.py`.
+Run the analysis from `ps_color_matlab_vs_plen/`. First prepare the input images
+as described below, then adjust the image names in the other scripts. Run, in
+order, `run_matlab.m`, `synthesize_plenoptic.py`, `compute_stats_plenoptic.py`, and
+finally `compare_statistics.py`.
+
+## Preparing input images
+
+Pass one or more source image paths to prepare them in a single run:
+
+```sh
+python prepare_texture.py /path/to/DSCF4315.tif /path/to/d30_2180.tif
+```
+
+By default, a 256 x 256 center crop is taken directly from each source image and saved as a .tiff file in `inputs/`, but crop size and output dir can be changed with command line arguments.
 
 ## Converting MATLAB statistics
 

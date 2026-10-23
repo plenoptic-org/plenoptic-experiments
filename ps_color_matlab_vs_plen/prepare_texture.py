@@ -1,36 +1,27 @@
+"""Prepare identical 8-bit RGB texture inputs for MATLAB and plenoptic."""
+
+import argparse
 from pathlib import Path
 
 import imageio.v3 as iio
-import torch.nn.functional as F
 
 import plenoptic as po
 
-# Texture to prepare and directory to save the processed image
-image_name = "DSCF4315"
-image_path = Path(f"{image_name}.tif")
-output_path = Path(f"inputs/{image_name}.tif")
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("images", nargs="+", type=Path)
+parser.add_argument("--output-dir", type=Path, default=Path("inputs"))
+parser.add_argument("--crop-size", type=int, default=256)
+args = parser.parse_args()
+args.output_dir.mkdir(parents=True, exist_ok=True)
 
-# Load the image in the 0--1 range expected by plenoptic
-image = po.load_images(image_path, as_gray=False)
-
-# Average each 4 x 4 source block, producing a deterministic antialiased
-# downsample from 1024 x 1024 to 256 x 256.
-image = F.interpolate(image, size=(256, 256), mode="area")
-
-# Use the representative central portion of the bark texture.
-crop_start = (256 - 128) // 2
-image = image[
-    ...,
-    crop_start : crop_start + 128,
-    crop_start : crop_start + 128,
-]
-
-# Both MATLAB and plenoptic will consume this exact 8-bit array.
-image_array = po.to_numpy(image.squeeze(0).permute(1, 2, 0))
-image_array = po.convert_float_to_int(image_array)
-
-output_path.parent.mkdir(exist_ok=True)
-iio.imwrite(output_path, image_array)
-print(
-    f"Saved {output_path} with shape {image_array.shape} and dtype {image_array.dtype}"
-)
+for image_path in args.images:
+    image = po.load_images(image_path, as_gray=False)
+    image = po.process.center_crop(image, args.crop_size)
+    image_array = po.to_numpy(image.squeeze(0).permute(1, 2, 0))
+    image_array = po.convert_float_to_int(image_array)
+    output_path = args.output_dir / f"{image_path.stem}.tif"
+    iio.imwrite(output_path, image_array)
+    print(
+        f"Saved {output_path} with shape {image_array.shape} "
+        f"and dtype {image_array.dtype}"
+    )
