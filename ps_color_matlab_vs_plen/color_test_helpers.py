@@ -8,16 +8,27 @@ for joint channel/orientation layouts and the extra color statistic families.
 from collections import OrderedDict
 
 import einops
+import scipy.io as sio
 import torch
 
 import plenoptic as po
 from plenoptic.models.portilla_simoncelli import LOWPASS_SHIFTS
 
 
+def load_matlab_statistics(path):
+    """Load a MATLAB reference without squeezing scale or channel dimensions."""
+    matlab = sio.loadmat(path)
+    params = matlab["params"]
+    matlab["params"] = {key: params[key][0, 0] for key in params.dtype.names}
+    for key in ["Nsc", "Nor", "Na"]:
+        matlab[key] = matlab[key].item()
+    return matlab
+
+
 def matlab_to_plenoptic_dict_color(params, n_scales, n_orientations):
     """Map a MATLAB color ``params`` dictionary to plenoptic names and layouts.
 
-    ``params`` is loaded with ``scipy.io.loadmat(..., simplify_cells=True)``;
+    ``params`` comes from ``load_matlab_statistics``;
     ``n_scales`` and ``n_orientations`` specify the pyramid layout. Returned tensors
     have a leading singleton batch dimension. Per-channel statistics retain their
     channel axis, while joint statistics combine channel and orientation.
@@ -31,6 +42,15 @@ def matlab_to_plenoptic_dict_color(params, n_scales, n_orientations):
     n_channels = params["pixelStats"].shape[0]
     n_signals = n_channels * n_orientations
     n_lowpass_signals = len(LOWPASS_SHIFTS) * n_channels
+    # MATLAB omits trailing singleton dimension, which when n_scales is 1 leads to
+    # invalid shape. Restore those singleton axes
+    params["cousinMagCorr"] = params["cousinMagCorr"].reshape(
+        n_signals, n_signals, n_scales
+    )
+    params["parentMagCorr"] = params["parentMagCorr"].reshape(
+        n_signals, n_signals, n_scales - 1
+    )
+    params["parentRealCorr"] = params["parentRealCorr"].reshape(n_signals, -1, n_scales)
 
     # Statistics shared with grayscale, with MATLAB's channel axis moved first.
     rep = OrderedDict()
@@ -43,7 +63,9 @@ def matlab_to_plenoptic_dict_color(params, n_scales, n_orientations):
     rep["auto_correlation_reconstructed"] = params["autoCorrReal"][
         :, :, : n_scales + 1, :
     ].permute(3, 0, 1, 2)[None]
-    rep["var_highpass_residual"] = params["varianceHPR"][None, :, None]
+    rep["var_highpass_residual"] = params["varianceHPR"].reshape(n_channels)[
+        None, :, None
+    ]
 
     # Color magnitude matrices already combine channel and orientation. Unlike
     # grayscale MATLAB output, the color MATLAB output has no extra placeholder scale

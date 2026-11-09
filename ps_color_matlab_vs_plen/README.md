@@ -46,6 +46,9 @@ and `remove_redundant_and_normalize`, based directly on plenoptic's
 conditional rearrangements before the shared `einsum` operations and additional
 lines for color-only statistics.
 
+`load_matlab_statistics(path)` reads MATLAB reference files without squeezing
+numeric array dimensions and unpacks the `params` struct into a dictionary.
+
 `matlab_to_plenoptic_dict_color(params, n_scales, n_orientations)` renames MATLAB
 fields, rearranges axes, and selects active blocks. Both grayscale and color use
 the two-argument call

@@ -4,10 +4,10 @@ import csv
 from pathlib import Path
 
 import numpy as np
-import scipy.io as sio
 import torch
 from color_test_helpers import (
     construct_normalizing_dict,
+    load_matlab_statistics,
     matlab_to_plenoptic_dict_color,
     remove_redundant_and_normalize,
 )
@@ -56,7 +56,7 @@ def compare_statistic(name, matlab_array, plenoptic_array, necessary_mask=None):
 
 # Load the saved analyses of the same RGB image and MATLAB PCA transform.
 image_name = "DSCF4315"
-matlab = sio.loadmat(f"matlab_statistics/matlab_{image_name}.mat", simplify_cells=True)
+matlab = load_matlab_statistics(f"matlab_statistics/matlab_{image_name}.mat")
 saved_plenoptic = torch.load(
     f"plenoptic_statistics/plenoptic_matlab_pca_{image_name}.pt",
     weights_only=True,

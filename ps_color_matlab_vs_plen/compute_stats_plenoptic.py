@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import scipy.io as sio
 import torch
+from color_test_helpers import load_matlab_statistics
 
 import plenoptic as po
 
@@ -16,7 +16,7 @@ statistics_dir = Path("plenoptic_statistics")
 statistics_dir.mkdir(exist_ok=True)
 
 # Load image and parameters as used by matlab
-matlab = sio.loadmat(matlab_path, simplify_cells=True)
+matlab = load_matlab_statistics(matlab_path)
 image = torch.tensor(matlab["im0"], dtype=DTYPE).permute(2, 0, 1).unsqueeze(0)
 
 n_scales = int(matlab["Nsc"])
