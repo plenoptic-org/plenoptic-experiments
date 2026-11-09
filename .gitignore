@@ -72,3 +72,6 @@ disbatch_out/
 *disbatch*sh
 *disbatch*out
 slurm*
+
+# Matlab dependencies for the color Portilla-Simoncelli comparison
+ps_color_matlab_vs_plen/matlab_ps_code/
