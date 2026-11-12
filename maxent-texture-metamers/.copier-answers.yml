@@ -1,0 +1,20 @@
+# Changes here will be overwritten by Copier
+_commit: fa434bb
+_src_path: gh:plenoptic-org/hyperparameter-search-template
+animate: true
+base_out: /mnt/ceph/users/wbroderick/plenoptic_experiments/maxent-texture-metamer
+cluster_prefix: PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch
+    MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic
+cpu_only: false
+image: images.py
+model: models.py
+optimizer: torch.optim.Adam
+optimizer_kwargs: '[{''lr'': 0.02}, {''lr'': 0.05}, {''lr'': 0.1} ,{''lr'':0.005},
+    {''lr'': .001}]'
+python_command: python
+scheduler: None
+search_params:
+- image
+- optimizer_kwargs
+status_plot: ''
+synthesis_object: Metamer

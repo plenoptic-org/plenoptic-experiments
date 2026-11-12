@@ -1,0 +1,17 @@
+[project]
+name = ""
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cyclopts",
+    "plenoptic",
+    "altair",
+    "pandas",
+    "torch",
+    "imageio",
+    "maxent_texture @ git+https://github.com/Bichidian/maxent-texture.git",
+    "torchvision",
+    "ipython",
+]
+
