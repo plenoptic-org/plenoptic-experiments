@@ -40,29 +40,28 @@ def load_image(path: Path):
         return po.load_images(path)
 
 
-#!/usr/bin/env python3
-
+import numpy as np
 TEXTURE_DIR = Path("/mnt/ceph/users/xzhao/Datasets")
 
 def _prep(img):
     dim = min(img.shape[-2:])
-    img = po.process.blur_downsample(img, dim//128)
+    img = po.process.blur_downsample(img, int(np.floor(np.log2(dim//128))))
     img = po.process.center_crop(img, 128)
     return po.process.rescale(img, -1, 1)
 
 def brick():
     # brick but not the one in figure 2
     path = TEXTURE_DIR / "cropped1024-selected/10D_9452.tif"
-    return _prep(po.load_images(path))
+    return _prep(po.load_images(path, as_gray=False))
 
 def straw():
     # straw but not the one in figure 2
     path = TEXTURE_DIR / "dtd/images/matted/matted_0085.jpg"
-    return _prep(po.load_images(path))
+    return _prep(po.load_images(path, as_gray=False))
 
 def cracked():
     path = TEXTURE_DIR / "dtd/images/cracked/cracked_0077.jpg"
-    return _prep(po.load_images(path))
+    return _prep(po.load_images(path, as_gray=False))
 from maxent_texture import load_pretrained
 
 class MaxEntTexture(torch.nn.Module):
@@ -75,13 +74,21 @@ class MaxEntTexture(torch.nn.Module):
 
 def maxent_texture():
     return MaxEntTexture()
+def l2_norm_squared():
+    return lambda x, y: po.loss.l2_norm(x, y).pow(2)
+def status_plot(met):
+    kwargs = {
+        "included_plots": ["synthesis_imshow", "synthesis_loss"],
+        "synthesis_imshow_kwargs": {"process_image": po.process.rescale},
+    }
+    return po.plot.synthesis_status(met, **kwargs)
 @app.default
 def main(
     image: Literal["brick", "straw", "cracked", ] | Path,
+    loss_function: Literal["l2_norm_squared", ],
+    penalty_function: Literal["penalize_range", ],
     optimizer_kwargs: Annotated[str, Parameter(converter=eval_ast)],
     model: Literal["maxent_texture", ] = "maxent_texture",
-    loss_function: Literal["mse", ] = "mse",
-    penalty_function: Literal["penalize_range", ] = "penalize_range",
     penalty_lambda: float = 0.1,
     initial_image: Literal["rand_like", ] | Path = "rand_like",
     optimizer: Literal["Adam", ] = "Adam",
@@ -127,11 +134,11 @@ def main(
     if model == "maxent_texture":
         model = maxent_texture()
     
-    if loss_function == "mse":
-        loss_function = po.metric.mse
+    if loss_function == "l2_norm_squared":
+        loss_function = l2_norm_squared()
     
     if penalty_function == "penalize_range":
-        penalty_function = po.regularize.penalize_range
+        penalty_function = lambda x: po.regularize.penalize_range(x, allowed_range=(-1, 1))
     
     if initial_image == "rand_like":
         initial_image = torch.rand_like(image)
@@ -172,19 +179,23 @@ def main(
         max_iter=max_iter,
         stop_criterion=stop_criterion,
         stop_iters_to_check=stop_iters_to_check,
-        store_progress=max_iter//n_frames,
+        store_progress=max(max_iter//n_frames, 1),
     )
     stop = time.time()
     synth.save(out_path)
     
     ani_path = out_path.with_suffix(".mp4")
-    po.plot.synthesis_animate(synth).save(ani_path)
+    animate_kwargs = {'included_plots': ['synthesis_imshow', 'synthesis_loss', 'synthesis_histogram'], 'process_image': po.process.rescale}
+    po.plot.synthesis_animate(synth, **animate_kwargs).save(ani_path)
     
     img_path = out_path.with_suffix(".png")
-    po.plot.synthesis_imshow(synth).figure.savefig(img_path)
+    imshow_kwargs = {'process_image': po.process.rescale}
+    po.plot.synthesis_imshow(synth, **imshow_kwargs).figure.savefig(img_path)
     
-    plot_path = out_path.with_suffix(".svg")
-    po.plot.synthesis_status(synth).savefig(plot_path)
+    
+    plot_path = out_path.with_name(f"{out_path.stem}-status_plot.svg")
+    status_plot(synth).savefig(plot_path)
+    
     
     data.update({
         "synthesis_duration": stop - start,

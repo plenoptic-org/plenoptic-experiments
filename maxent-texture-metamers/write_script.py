@@ -80,7 +80,7 @@ def main(
     params = OrderedDict()
     params["image"] = ["brick", "straw", "cracked", ]
     params["model"] = ["maxent_texture", ]
-    params["loss_function"] = ["mse", ]
+    params["loss_function"] = ["l2_norm_squared", ]
     params["penalty_function"] = ["penalize_range", ]
     params["initial_image"] = ["rand_like", ]
     params["optimizer"] = ["Adam", ]
@@ -89,7 +89,7 @@ def main(
     params["max_iter"] = [100, ]
     params["stop_criterion"] = [0, ]
     params["stop_iters_to_check"] = [50, ]
-    params["seed"] = [0, ]
+    params["seed"] = [0, 1, 2, 3]
     params["dtype"] = dtype
     params["device"] = device
     # everything in params needs to be a string

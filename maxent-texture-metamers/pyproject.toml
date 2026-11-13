@@ -10,8 +10,8 @@ dependencies = [
     "pandas",
     "torch",
     "imageio",
-    "maxent_texture @ git+https://github.com/Bichidian/maxent-texture.git",
-    "torchvision",
-    "ipython",
+"torchvision",
+"ipython",
+"maxent_texture @ git+https://github.com/Bichidian/maxent-texture.git",
 ]
 

@@ -1,20 +1,31 @@
 # Changes here will be overwritten by Copier
-_commit: fa434bb
+_commit: 3aff014
 _src_path: gh:plenoptic-org/hyperparameter-search-template
 animate: true
+animate_kwargs: '{''included_plots'': [''synthesis_imshow'', ''synthesis_loss'', ''synthesis_histogram''],
+    ''process_image'': po.process.rescale}'
 base_out: /mnt/ceph/users/wbroderick/plenoptic_experiments/maxent-texture-metamer
 cluster_prefix: PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch
     MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic
 cpu_only: false
+extra_deps:
+- torchvision
+- ipython
+- maxent_texture @ git+https://github.com/Bichidian/maxent-texture.git
 image: images.py
+imshow_kwargs: '{''process_image'': po.process.rescale}'
+loss_function: loss.py
 model: models.py
 optimizer: torch.optim.Adam
 optimizer_kwargs: '[{''lr'': 0.02}, {''lr'': 0.05}, {''lr'': 0.1} ,{''lr'':0.005},
     {''lr'': .001}]'
+penalty_function: 'lambda x: po.regularize.penalize_range(x, allowed_range=(-1, 1))'
 python_command: python
 scheduler: None
 search_params:
 - image
+- loss_function
+- penalty_function
 - optimizer_kwargs
-status_plot: ''
+status_plot: plot.py
 synthesis_object: Metamer
