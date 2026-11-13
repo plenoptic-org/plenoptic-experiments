@@ -16,16 +16,15 @@ it does two things:
 This validation suite has the following components:
 
 - `prepare_texture.py`: Center-crops texture images to 256 x 256 and saves into `inputs/`.
-- `run_matlab.m`: Computes the color statistics of the image, and generates a metamer. Statistics are saved in `matlab_statistics/`, and the metamer in `matlab_metamers/`. Also saves the PCA parameters for exact reproducibility in Python.
-- `compute_stats_plenoptic.py`: Computes the color Portilla-Simoncelli statistics with the new implementation. It loads and uses the PCA parameters obtained by Matlab, for full reproducibility. Saves statistics in `plenoptic_statistics/`.
+- `export_matlab_ps.m`: Computes the color statistics of the image, and generates a metamer. Statistics are saved in `matlab_statistics/`, and the metamer in `matlab_metamers/`. Also saves the PCA parameters for exact reproducibility in Python.
+- `compute_stats_plenoptic.py`: Computes the color Portilla-Simoncelli statistics with the new implementation. Provides `compute_color_ps_statistics()`, using the PCA parameters obtained by Matlab for full reproducibility.
 - `synthesize_plenoptic.py`: Synthesize metamers with plenoptic, using the PCA and OPC color transforms and both the default and color-matched initializations. It doesn't do any Matlab matching. Saves the metamers in `plenoptic_metamers/`.
 - `color_test_helpers.py`: Extends plenoptic's (pre PR 482) test helpers with shared grayscale/color normalization functions and a MATLAB color dictionary mapper.
-- `compare_statistics.py`: Loads the saved statistics, calls the conversion helpers, and prints the absolute and relative differences for each statistic family. Saves the summaries to `results/matlab_plen_differences.csv`.
+- `compare_statistics.py`: Loads the saved statistics, calls the conversion helpers, and prints the absolute and relative differences for each statistic family. Saves per-image CSV summaries in `results/`. Always computes fresh plenoptic statistics from the MATLAB reference.
 
-Run the analysis from `ps_color_matlab_vs_plen/`. First prepare the input images
-as described below, then adjust the image names in the other scripts. Run, in
-order, `run_matlab.m`, `synthesize_plenoptic.py`, `compute_stats_plenoptic.py`, and
-finally `compare_statistics.py`.
+Run the analysis from `ps_color_matlab_vs_plen/`. Prepare the input images,
+set the image name and parameters in `export_matlab_ps.m`, and run it in MATLAB.
+Then compare the exported statistics using the commands below.
 
 ## Preparing input images
 
@@ -63,6 +62,21 @@ by four to match MATLAB's covariance convention; periodic shifts preserve its
 variance. The helpers compute all joint channel/orientation factors directly,
 without an adapter model or per-channel grayscale conversion.
 
+## Comparing plenoptic to MATLAB outputs
+
+To run a comparison, the matlab output files need to be generated first,
+because plenoptic computes its statistics using matlab outputs for the sake
+of comparison. Once the .mat file is generated, compare a MATLAB reference with
+a fresh plenoptic computation:
+
+```sh
+python compare_statistics.py matlab_statistics/matlab_d30_2180.mat
+```
+
+This writes `results/matlab_d30_2180_differences.csv`. Use `--output` to choose
+another output file. When no reference path is supplied, the command defaults to
+`matlab_statistics/matlab_DSCF4315.mat`.
+
 ## Getting the MATLAB version of the code
 
 Before running the analysis, download the Matlab dependencies into
@@ -83,4 +97,4 @@ curl -fL https://www.cns.nyu.edu/pub/eero/colorTextureSynth.tgz -o matlab_ps_cod
 tar -xzf matlab_ps_code/colorTextureSynth.tgz -C matlab_ps_code
 ```
 
-This should download the three dependencies into `plenoptic-experiments/ps_color_matlab_vs_plen/matlab_ps_code`. The MATLAB script `run_matlab.m` adds `matlab_ps_code/` and its subdirectories to the Matlab path automatically.
+This should download the three dependencies into `plenoptic-experiments/ps_color_matlab_vs_plen/matlab_ps_code`. The MATLAB script `export_matlab_ps.m` adds `matlab_ps_code/` and its subdirectories to the Matlab path automatically.
