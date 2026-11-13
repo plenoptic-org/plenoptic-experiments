@@ -67,26 +67,32 @@ def _cracked():
     path = TEXTURE_DIR / "dtd/images/cracked/cracked_0077.jpg"
     return _prep(po.load_images(path, as_gray=False))
 
-def _texture_interpolation(percent):
-    model = MaxEntTexture()
-    img = torch.cat([_straw(), _cracked()])
-    weights = torch.as_tensor([percent, 1-percent]).unsqueeze(1)
-    target_rep = (weights * model(img)).sum(0)
-    def loss(x):
-        return po.loss.l2_norm(target_rep, model(x)).pow(2)
-    return loss
+class InterpolationLoss(torch.nn.Module):
+    def __init__(self, percent):
+        super().__init__()
+        model = MaxEntTexture().eval()
+        po.remove_grad(model)
+        img = torch.cat([_straw(), _cracked()])
+        weights = torch.as_tensor([percent, 1-percent])
+        print(f"Weighted sum using {weights=}")
+        target_rep = (weights.unsqueeze(1) * model(img)).sum(0)
+        self.register_buffer("target_rep", target_rep)
+        self.model = model
+
+    def forward(self, x):
+        return po.loss.l2_norm(self.target_rep, self.model(x)).pow(2)
 
 def loss_20_percent():
-    return _texture_interpolation(.2)
+    return InterpolationLoss(.2)
 
 def loss_40_percent():
-    return _texture_interpolation(.4)
+    return InterpolationLoss(.4)
 
 def loss_60_percent():
-    return _texture_interpolation(.6)
+    return InterpolationLoss(.6)
 
 def loss_80_percent():
-    return _texture_interpolation(.8)
+    return InterpolationLoss(.8)
 def status_plot(met):
     kwargs = {
         "included_plots": ["synthesis_imshow", "synthesis_loss"],
