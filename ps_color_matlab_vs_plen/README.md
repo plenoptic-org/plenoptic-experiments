@@ -77,6 +77,14 @@ This writes `results/matlab_d30_2180_differences.csv`. Use `--output` to choose
 another output file. When no reference path is supplied, the command defaults to
 `matlab_statistics/matlab_DSCF4315.mat`.
 
+A statistic family passes when every non-redundant entry satisfies
+`abs(plenoptic - matlab) <= atol`. The default absolute tolerance is `1e-4`;
+use `--atol` to change it. Corresponding arrays must have matching shapes.
+Matching empty statistics families (e.g. cross-scale correlations when there's a
+single scale) pass. The CSV includes `atol` and per-family `status` columns. The
+command writes the report and exits with status 1 if any family fails, or 0
+if all pass.
+
 ## Getting the MATLAB version of the code
 
 Before running the analysis, download the Matlab dependencies into

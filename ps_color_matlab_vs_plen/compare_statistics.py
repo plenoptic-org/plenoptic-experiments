@@ -18,9 +18,11 @@ import plenoptic as po
 
 
 def compare_statistic_arrays(
-    name, matlab_array, plenoptic_array, necessary_mask=None, verbose=True
+    name, matlab_array, plenoptic_array, necessary_mask=None, atol=1e-4, verbose=True
 ):
-    """Compare corresponding MATLAB and plenoptic statistic arrays.
+    """Compare corresponding MATLAB and plenoptic statistic arrays. Return
+    the difference between the arrays, and a flag with values
+    "passed" or "failed" indicating if the two match.
 
     Parameters
     ----------
@@ -29,36 +31,56 @@ def compare_statistic_arrays(
     matlab_array, plenoptic_array : array-like
         Corresponding statistic arrays with the same shape.
     necessary_mask : array-like or None
-        Boolean mask selecting the non-redundant values to summarize. If
+        Boolean mask selecting the non-redundant values to compare. If
         ``None``, all values are included.
+    atol : float
+        Maximum allowed absolute difference for each selected entry.
     verbose : bool
         Whether to print the comparison summary.
 
     Returns
     -------
-    max_absolute_difference, max_relative_difference : float
-        Maximum absolute and relative differences among the selected entries.
+    result : dict
+        Maximum absolute and relative differences, ``atol``, and ``status``
+        (``"passed"`` or ``"failed"``). Only absolute differences determine the
+        status. Empty selections have zero error and pass.
     """
     matlab_values = np.asarray(matlab_array)
     plenoptic_values = np.asarray(plenoptic_array)
+    assert matlab_values.shape == plenoptic_values.shape, (
+        f"{name}: MATLAB shape {matlab_values.shape} != "
+        f"plenoptic shape {plenoptic_values.shape}"
+    )
 
     if necessary_mask is not None:
-        selected = np.broadcast_to(necessary_mask, matlab_values.shape)
-        matlab_values = matlab_values[selected]
-        plenoptic_values = plenoptic_values[selected]
+        matlab_values = matlab_values[..., necessary_mask]
+        plenoptic_values = plenoptic_values[..., necessary_mask]
 
     absolute_difference = np.abs(matlab_values - plenoptic_values)
-    relative_difference = absolute_difference / np.abs(matlab_values)
-    max_absolute_difference = absolute_difference.max()
-    max_relative_difference = relative_difference.max()
+    if absolute_difference.size > 0:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            relative_difference = absolute_difference / np.abs(matlab_values)
+        relative_difference = np.where(absolute_difference == 0, 0, relative_difference)
+        max_absolute_difference = absolute_difference.max()
+        mean_absolute_difference = absolute_difference.mean()
+        max_relative_difference = relative_difference.max()
+    else:
+        # If both are empty arrays, set difference to 0
+        max_absolute_difference = mean_absolute_difference = max_relative_difference = 0
 
+    result = {
+        "max_absolute_difference": max_absolute_difference,
+        "max_relative_difference": max_relative_difference,
+        "atol": atol,
+        "status": "passed" if (absolute_difference <= atol).all() else "failed",
+    }
     if verbose:
-        print(f"\n{name}")
+        print(f"\n{name}: {result['status']}")
         print(f"  compared values: {matlab_values.size}")
         print(f"  maximum absolute difference: {max_absolute_difference:.6g}")
-        print(f"  mean absolute difference:    {absolute_difference.mean():.6g}")
+        print(f"  mean absolute difference:    {mean_absolute_difference:.6g}")
         print(f"  maximum relative difference: {max_relative_difference:.6g}")
-    return max_absolute_difference, max_relative_difference
+    return result
 
 
 # Keep the original reporting order and Vacher Appendix B.2 references.
@@ -138,7 +160,7 @@ statistics_to_compare = [
 
 
 @torch.no_grad()
-def compare_color_ps_statistics(matlab, verbose=True):
+def compare_color_ps_statistics(matlab, atol=1e-4, verbose=True):
     """Compare color PS statistic families between MATLAB and plenoptic.
 
     Compute plenoptic statistics using MATLAB's image, PCA transform, and
@@ -152,6 +174,8 @@ def compare_color_ps_statistics(matlab, verbose=True):
         Reference loaded with ``load_matlab_statistics``. Contains the image,
         PCA transform and transformed image, model parameters, and MATLAB
         statistics in ``params``.
+    atol : float
+        Maximum allowed absolute difference for each non-redundant statistic.
     verbose : bool
         Whether to print input-image and PCA-image diagnostics and per-family
         error summaries. Diagnostics are not included in the returned rows.
@@ -162,7 +186,9 @@ def compare_color_ps_statistics(matlab, verbose=True):
         One row per family in ``statistics_to_compare``, in the same order.
         Each row contains ``matlab_name``, ``plenoptic_name``, the Appendix B.2
         reference ``vacher_statistic``, and ``max_absolute_difference`` and
-        ``max_relative_difference`` over the selected entries. No files are written.
+        ``max_relative_difference`` over the selected entries, plus ``atol`` and
+        ``status`` (``"passed"`` or ``"failed"``). Empty families have zero error
+        and pass. Relative errors are diagnostic only. No files are written.
     """
     plenoptic_statistics = compute_color_ps_statistics(matlab)
     plenoptic_representation = plenoptic_statistics["representation"]
@@ -176,6 +202,7 @@ def compare_color_ps_statistics(matlab, verbose=True):
         "Input image (BCHW, 0--255)",
         matlab_image,
         plenoptic_statistics["image"],
+        atol=atol,
         verbose=verbose,
     )
     matlab_pca_image = torch.tensor(matlab["imPCA"], dtype=torch.float64).permute(
@@ -185,6 +212,7 @@ def compare_color_ps_statistics(matlab, verbose=True):
         "PCA-transformed image",
         matlab_pca_image,
         plenoptic_statistics["pca"]["transformed_image"],
+        atol=atol,
         verbose=verbose,
     )
 
@@ -213,11 +241,12 @@ def compare_color_ps_statistics(matlab, verbose=True):
 
     difference_summaries = []
     for label, matlab_name, plenoptic_name, vacher_statistic in statistics_to_compare:
-        max_absolute_difference, max_relative_difference = compare_statistic_arrays(
+        result = compare_statistic_arrays(
             label,
             matlab_representation[plenoptic_name],
             plenoptic_representation[plenoptic_name],
             plenoptic_necessary_stats[plenoptic_name],
+            atol=atol,
             verbose=verbose,
         )
         difference_summaries.append(
@@ -225,8 +254,7 @@ def compare_color_ps_statistics(matlab, verbose=True):
                 "matlab_name": matlab_name,
                 "plenoptic_name": plenoptic_name,
                 "vacher_statistic": vacher_statistic,
-                "max_absolute_difference": max_absolute_difference,
-                "max_relative_difference": max_relative_difference,
+                **result,
             }
         )
 
@@ -252,8 +280,17 @@ if __name__ == "__main__":
         default=Path("matlab_statistics/matlab_DSCF4315.mat"),
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--atol", type=float, default=1e-4)
     args = parser.parse_args()
-    rows = compare_color_ps_statistics(load_matlab_statistics(args.matlab_path))
+    rows = compare_color_ps_statistics(
+        load_matlab_statistics(args.matlab_path), atol=args.atol
+    )
     output = args.output or Path("results") / f"{args.matlab_path.stem}_differences.csv"
     write_results(rows, output)
     print(f"\nSaved difference summaries to {output}")
+    n_failed = sum(row["status"] == "failed" for row in rows)
+    print(
+        f"{len(rows) - n_failed}/{len(rows)} statistic families passed "
+        f"(atol={args.atol})"
+    )
+    raise SystemExit(int(n_failed > 0))
