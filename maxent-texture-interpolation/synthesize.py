@@ -71,7 +71,6 @@ class InterpolationLoss(torch.nn.Module):
     def __init__(self, percent):
         super().__init__()
         model = MaxEntTexture().eval()
-        po.remove_grad(model)
         img = torch.cat([_straw(), _cracked()])
         weights = torch.as_tensor([percent, 1-percent])
         print(f"Weighted sum using {weights=}")
@@ -83,20 +82,29 @@ class InterpolationLoss(torch.nn.Module):
         return po.loss.l2_norm(self.target_rep, self.model(x)).pow(2)
 
 def loss_20_percent():
-    return InterpolationLoss(.2)
+    loss = InterpolationLoss(.2)
+    po.remove_grad(loss)
+    return loss
 
 def loss_40_percent():
-    return InterpolationLoss(.4)
+    loss = InterpolationLoss(.4)
+    po.remove_grad(loss)
+    return loss
 
 def loss_60_percent():
-    return InterpolationLoss(.6)
+    loss = InterpolationLoss(.6)
+    po.remove_grad(loss)
+    return loss
 
 def loss_80_percent():
-    return InterpolationLoss(.8)
+    loss = InterpolationLoss(.8)
+    po.remove_grad(loss)
+    return loss
 def status_plot(met):
     kwargs = {
         "included_plots": ["synthesis_imshow", "synthesis_loss"],
         "synthesis_imshow_kwargs": {"process_image": po.process.rescale},
+        "synthesis_loss_kwargs": {"plot_penalties": True},
     }
     return po.plot.synthesis_status(met, **kwargs)
 @app.default
@@ -148,7 +156,7 @@ def main(
         penalty_function = lambda x: po.regularize.penalize_range(x, (-1, 1))
     
     if initial_image == "rescale":
-        initial_image = po.process.rescale(torch.rand(1, 3, 128, 128), -1, 1)
+        initial_image = po.process.rescale(torch.rand(1, 3, 128, 128, dtype=torch.float64, device=0), -1, 1)
     else:
         initial_image = load_image(initial_image)
     

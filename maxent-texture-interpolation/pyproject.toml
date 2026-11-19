@@ -12,5 +12,6 @@ dependencies = [
     "imageio",
 "torchvision",
 "maxent_texture @ git+https://github.com/Bichidian/maxent-texture.git",
+"ipython",
 ]
 

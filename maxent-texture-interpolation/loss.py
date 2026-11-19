@@ -29,7 +29,6 @@ class InterpolationLoss(torch.nn.Module):
     def __init__(self, percent):
         super().__init__()
         model = MaxEntTexture().eval()
-        po.remove_grad(model)
         img = torch.cat([_straw(), _cracked()])
         weights = torch.as_tensor([percent, 1-percent])
         print(f"Weighted sum using {weights=}")
@@ -41,13 +40,21 @@ class InterpolationLoss(torch.nn.Module):
         return po.loss.l2_norm(self.target_rep, self.model(x)).pow(2)
 
 def loss_20_percent():
-    return InterpolationLoss(.2)
+    loss = InterpolationLoss(.2)
+    po.remove_grad(loss)
+    return loss
 
 def loss_40_percent():
-    return InterpolationLoss(.4)
+    loss = InterpolationLoss(.4)
+    po.remove_grad(loss)
+    return loss
 
 def loss_60_percent():
-    return InterpolationLoss(.6)
+    loss = InterpolationLoss(.6)
+    po.remove_grad(loss)
+    return loss
 
 def loss_80_percent():
-    return InterpolationLoss(.8)
+    loss = InterpolationLoss(.8)
+    po.remove_grad(loss)
+    return loss

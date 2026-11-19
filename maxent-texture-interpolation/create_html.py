@@ -51,6 +51,7 @@ def main(
     tooltip: Annotated[list[str] | None, Parameter(consume_multiple=True)] = None,
     logscale_x: bool = False,
     logscale_y: bool = False,
+    logscale_color: bool = False,
     share_x: bool = True,
     share_y: bool = True,
     separate_plots: Annotated[list[str] | None, Parameter(consume_multiple=True)] = None,
@@ -93,8 +94,8 @@ def main(
     specify the optimizer_kwargs_lr. View one of you csv files to see the possible
     choices.
 
-    tooltip can be multiple of these (e.g., "--tooltip image_name model"). If tooltip is
-    None (the default), will contain all of the above.
+    tooltip can be multiple of these (e.g., "--tooltip synthesis_duration dtype"). If
+    tooltip is None (the default), will contain all of the above.
 
     separate_plots specifies which of the above to create separate plots for. it can
     similarly be multiple of these, but if None (the default), will plot all data on
@@ -144,9 +145,10 @@ def main(
     else:
         df = pd.concat([pd.read_csv(f) for f in input_path.glob("*csv")
                         if f != output_path.with_suffix(".csv")])
-    df["image_name"] = df["image"]
-    df.to_csv(output_path.with_suffix(".csv"), index=False)
 
+    
+
+    df.to_csv(output_path.with_suffix(".csv"), index=False)
 
     # encode png image as a base64 string so we can display it,
     # see https://altair-viz.github.io/user_guide/marks/image.html
@@ -170,7 +172,12 @@ def main(
         y = y.scale(type="log")
     encodings = {"x": x, "y": y, "tooltip": tooltip}
     if color is not None:
-        encodings["color"] = alt.Color(color)
+        color = alt.Color(color)
+        if logscale_color:
+            color = color.scale(type="log")
+        encodings["color"] = color
+    elif logscale_color:
+        raise ValueError(f"Can't set {logscale_color=} when color is None!")
     if shape is not None:
         encodings["shape"] = alt.Shape(shape, type="nominal")
     facets = {}
