@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from color_test_helpers import (
+from matlab_statistics_helpers import (
     construct_normalizing_dict,
     load_matlab_statistics,
     matlab_to_plenoptic_dict_color,

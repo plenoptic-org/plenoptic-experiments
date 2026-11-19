@@ -7,11 +7,11 @@ from pathlib import Path
 import imageio.v3 as iio
 import numpy as np
 import torch
-from color_test_helpers import load_matlab_statistics
 from compare_statistics import compare_color_ps_statistics, write_results
+from matlab_statistics_helpers import load_matlab_statistics
 
 torch.set_num_threads(2)
-atol = 1e-4
+atol = 1e-5
 output_dir = Path("validation")
 sweep = json.loads(Path("sweep.json").read_text())
 cases = []
@@ -21,6 +21,7 @@ for image, scales, orientations, width in itertools.product(
     sweep["n_orientations"],
     sweep["spatial_corr_width"],
 ):
+    # Generate a list with all images/parameters to check (cases)
     case_id = f"{image}-scales{scales}-ori{orientations}-spat{width}"
     cases.append(
         {
@@ -33,6 +34,8 @@ for image, scales, orientations, width in itertools.product(
             "matlab_path": f"matlab_statistics/{case_id}.mat",
         }
     )
+
+# Check that cases is not empty, no duplicates, and that necessary files exist
 assert cases, "Empty parameter sweep"
 assert len({case["case_id"] for case in cases}) == len(cases), "Duplicate sweep cases"
 
@@ -42,7 +45,7 @@ missing = [
     if not (output_dir / case["matlab_path"]).is_file()
 ]
 assert not missing, (
-    f"Missing {len(missing)} MATLAB references; generate them on the cluster "
+    f"Missing {len(missing)} MATLAB references; generate them "
     f"with export_matlab_ps_stats and copy them back. First missing: {missing[0]}"
 )
 

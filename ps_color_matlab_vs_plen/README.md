@@ -13,7 +13,7 @@ The components needed to **compare the statistics** of MATLAB and plenoptic are 
 
 - `export_matlab_ps_stats.m` generates one MATLAB reference for each case in `sweep.json`.
 - `compare_sweep.py` compares those references locally and writes per-family and per-case reports.
-- `color_test_helpers.py` maps MATLAB statistics to plenoptic's layout and provides shared grayscale and color normalization functions.
+- `matlab_statistics_helpers.py` maps MATLAB statistics to plenoptic's layout and provides shared grayscale and color normalization functions.
 - `compare_statistics.py` compares a single MATLAB reference with plenoptic statistics computed using the reference PCA parameters. It reports absolute and relative differences for each statistic family and saves a CSV in `results/`.
 
 The components needed to **synthesize metamers** are the following:
@@ -29,39 +29,6 @@ for both statistics comparison and metamer synthesis.
 ```sh
 python prepare_texture.py xzhao_textures/*.tif
 ```
-
-## Loading and converting MATLAB statistics
-
-`color_test_helpers.py` contains local versions of the helper functions of plenoptic's `tests/test_models.py`.
-Each local helper function handles both grayscale and color.
-
-`load_matlab_statistics(path)` reads MATLAB reference files without messing up the dimensions in the process, and unpacks the `params` struct into a dictionary.
-
-`matlab_to_plenoptic_dict_color(params, n_scales, n_orientations)` renames MATLAB fields, rearranges axes, and selects active blocks. Both grayscale and color use `remove_redundant_and_normalize(rep, False, model, norm_dict)` to normalize raw covariances and pack the representation with the model's masks.
-
-Cross-correlation normalizers are computed from the image's pyramid intermediates. The helpers compute all joint channel/orientation factors directly, without an adapter model or per-channel grayscale conversion.
-
-## Comparing plenoptic to MATLAB outputs
-
-To run a comparison, the matlab output files need to be generated first,
-because plenoptic computes its statistics using matlab outputs for the sake
-of comparison. Once the .mat file is generated, compare a MATLAB reference with
-a fresh plenoptic computation:
-
-```sh
-python compare_statistics.py matlab_statistics/matlab_d30_2180.mat
-```
-
-This writes `results/matlab_d30_2180_differences.csv`. Use `--output` to choose
-another output file. When no reference path is supplied, the command defaults to
-`matlab_statistics/matlab_DSCF4315.mat`.
-
-A statistic family passes when every non-redundant entry satisfies
-`abs(plenoptic - matlab) <= atol`. Statistics families that are empty in both
-implementations pass (e.g. cross-scale correlations when there's a
-single scale). The CSV includes `atol` and per-family `status` columns. The
-command writes the report and exits with status 1 if any family fails, or 0
-if all pass.
 
 ## Comparing multiple images and parameters
 
@@ -86,11 +53,44 @@ python compare_sweep.py
 Check `validation/case_summary.csv` for pass/fail by case and
 `validation/comparisons.csv` for errors by statistic family.
 
+## Comparing plenoptic to MATLAB outputs
+
+To run a comparison, the matlab output files need to be generated first,
+because plenoptic computes its statistics using matlab outputs for the sake
+of comparison. Once the .mat file is generated, compare a MATLAB reference with
+a fresh plenoptic computation:
+
+```sh
+python compare_statistics.py matlab_statistics/matlab_d30_2180.mat
+```
+
+This writes `results/matlab_d30_2180_differences.csv`. Use `--output` to choose
+another output file. When no reference path is supplied, the command defaults to
+`matlab_statistics/matlab_DSCF4315.mat`.
+
+A statistic family passes when every non-redundant entry satisfies
+`abs(plenoptic - matlab) <= atol`. Statistics families that are empty in both
+implementations pass (e.g. cross-scale correlations when there's a
+single scale). The CSV includes `atol` and per-family `status` columns. The
+command writes the report and exits with status 1 if any family fails, or 0
+if all pass.
+
 ## Generating a baseline MATLAB metamer
 
 Run `export_matlab_ps_metamer` in MATLAB on the cluster. By default it
 synthesizes a metamer for `inputs/DSCF4315.tif` and saves the image and
 synthesis metadata in `matlab_metamers/`.
+
+## Loading and converting MATLAB statistics
+
+`matlab_statistics_helpers.py` contains local versions of the helper functions of plenoptic's `tests/test_models.py`.
+Each local helper function handles both grayscale and color.
+
+`load_matlab_statistics(path)` reads MATLAB reference files without messing up the dimensions in the process, and unpacks the `params` struct into a dictionary.
+
+`matlab_to_plenoptic_dict_color(params, n_scales, n_orientations)` renames MATLAB fields, rearranges axes, and selects active blocks. Both grayscale and color use `remove_redundant_and_normalize(rep, False, model, norm_dict)` to normalize raw covariances and pack the representation with the model's masks.
+
+Cross-correlation normalizers are computed from the image's pyramid intermediates. The helpers compute all joint channel/orientation factors directly, without an adapter model or per-channel grayscale conversion.
 
 ## Getting the MATLAB version of the code
 
