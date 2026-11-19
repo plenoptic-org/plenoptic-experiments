@@ -7,59 +7,39 @@ the statistics in the plenoptic implementation are the same as in Matlab, and
 that the metamers synthesized with this new model are as good as the Matlab ones.
 We are tracking this in Issue #484.
 
-The code in this directory performs some of this validation. Specifically,
-it does two things:
-- It computes the statistics of a texture with both Matlab and plenoptic, and
-  compares that they are identical up to numerical precision.
-- It synthesizes textures metamers with both Matlab and plenoptic.
+Run the commands below from `ps_color_matlab_vs_plen/`.
 
-This validation suite has the following components:
+The components needed to **compare the statistics** of MATLAB and plenoptic are the following:
 
-- `prepare_texture.py`: Center-crops texture images to 256 x 256 and saves into `inputs/`.
-- `export_matlab_ps.m`: Computes the color statistics of the image, and generates a metamer. Statistics are saved in `matlab_statistics/`, and the metamer in `matlab_metamers/`. Also saves the PCA parameters for exact reproducibility in Python.
-- `synthesize_plenoptic.py`: Synthesize metamers with plenoptic, using the PCA and OPC color transforms and both the default and color-matched initializations. It doesn't do any Matlab matching. Saves the metamers in `plenoptic_metamers/`.
-- `color_test_helpers.py`: Extends plenoptic's (pre PR 482) test helpers with shared grayscale/color normalization functions and a MATLAB color dictionary mapper.
-- `compare_statistics.py`: Loads the saved statistics, calls the conversion helpers, and prints the absolute and relative differences for each statistic family. Saves per-image CSV summaries in `results/`. Computes fresh plenoptic statistics using the MATLAB reference's PCA parameters.
+- `export_matlab_ps_stats.m` generates one MATLAB reference for each case in `sweep.json`.
+- `compare_sweep.py` compares those references locally and writes per-family and per-case reports.
+- `color_test_helpers.py` maps MATLAB statistics to plenoptic's layout and provides shared grayscale and color normalization functions.
+- `compare_statistics.py` compares a single MATLAB reference with plenoptic statistics computed using the reference PCA parameters. It reports absolute and relative differences for each statistic family and saves a CSV in `results/`.
 
-Run the analysis from `ps_color_matlab_vs_plen/`. Prepare the input images,
-set the image name and parameters in `export_matlab_ps.m`, and run it in MATLAB.
-Then compare the exported statistics using the commands below.
+The components needed to **synthesize metamers** are the following:
+
+- `export_matlab_ps_metamer.m` synthesizes a metamer for one image using baseline MATLAB parameters and saves the metamer and synthesis metadata in `matlab_metamers/`.
+- `synthesize_plenoptic.py` synthesizes metamers using the PCA and OPC color transforms with both default and color-matched initializations. It saves the outputs in `plenoptic_metamers/`.
 
 ## Preparing input images
 
-Pass one or more source image paths to prepare them in a single run:
+Run this once to save a 256 x 256 center crop of each source texture in `inputs/`
+for both statistics comparison and metamer synthesis.
 
 ```sh
-python prepare_texture.py /path/to/DSCF4315.tif /path/to/d30_2180.tif
+python prepare_texture.py xzhao_textures/*.tif
 ```
 
-By default, a 256 x 256 center crop is taken directly from each source image and saved as a .tiff file in `inputs/`, but crop size and output dir can be changed with command line arguments.
+## Loading and converting MATLAB statistics
 
-## Converting MATLAB statistics
+`color_test_helpers.py` contains local versions of the helper functions of plenoptic's `tests/test_models.py`.
+Each local helper function handles both grayscale and color.
 
-`color_test_helpers.py` contains local versions of `construct_normalizing_dict`
-and `remove_redundant_and_normalize`, based directly on plenoptic's
-`tests/test_models.py`. Each function handles both grayscale and color through
-`plen_ps.color_statistics`. The original calculation order is retained, with
-conditional rearrangements before the shared `einsum` operations and additional
-lines for color-only statistics.
+`load_matlab_statistics(path)` reads MATLAB reference files without messing up the dimensions in the process, and unpacks the `params` struct into a dictionary.
 
-`load_matlab_statistics(path)` reads MATLAB reference files without squeezing
-numeric array dimensions and unpacks the `params` struct into a dictionary.
+`matlab_to_plenoptic_dict_color(params, n_scales, n_orientations)` renames MATLAB fields, rearranges axes, and selects active blocks. Both grayscale and color use `remove_redundant_and_normalize(rep, False, model, norm_dict)` to normalize raw covariances and pack the representation with the model's masks.
 
-`matlab_to_plenoptic_dict_color(params, n_scales, n_orientations)` renames MATLAB
-fields, rearranges axes, and selects active blocks. Both grayscale and color use
-the two-argument call
-`construct_normalizing_dict(model, image)`.
-Both modes use `remove_redundant_and_normalize(rep, False, model, norm_dict)` to
-normalize raw covariances and pack the representation with the model's masks.
-
-All cross-correlation normalizers use variances computed from the image's pyramid
-intermediates. Supply the already transformed MATLAB PCA image when constructing
-the color normalizers. For lowpass normalizers, the expanded residual is divided
-by four to match MATLAB's covariance convention; periodic shifts preserve its
-variance. The helpers compute all joint channel/orientation factors directly,
-without an adapter model or per-channel grayscale conversion.
+Cross-correlation normalizers are computed from the image's pyramid intermediates. The helpers compute all joint channel/orientation factors directly, without an adapter model or per-channel grayscale conversion.
 
 ## Comparing plenoptic to MATLAB outputs
 
@@ -77,12 +57,40 @@ another output file. When no reference path is supplied, the command defaults to
 `matlab_statistics/matlab_DSCF4315.mat`.
 
 A statistic family passes when every non-redundant entry satisfies
-`abs(plenoptic - matlab) <= atol`. The default absolute tolerance is `1e-4`;
-use `--atol` to change it. Corresponding arrays must have matching shapes.
-Matching empty statistics families (e.g. cross-scale correlations when there's a
-single scale) pass. The CSV includes `atol` and per-family `status` columns. The
+`abs(plenoptic - matlab) <= atol`. Statistics families that are empty in both
+implementations pass (e.g. cross-scale correlations when there's a
+single scale). The CSV includes `atol` and per-family `status` columns. The
 command writes the report and exits with status 1 if any family fails, or 0
 if all pass.
+
+## Comparing multiple images and parameters
+
+`sweep.json` defines parameter combinations for each of the four textures.
+To change the sweep, edit the lists in that file.
+
+**Generate MATLAB references on the cluster.** Use the same `sweep.json` and
+[prepared images](#preparing-input-images) on both machines. With the MATLAB
+dependencies installed, run the exporter from the experiment directory.
+
+```matlab
+export_matlab_ps_stats
+```
+
+**Compare locally.** Copy the generated `validation/matlab_statistics/` directory
+back to the same relative path and run the comparison.
+
+```sh
+python compare_sweep.py
+```
+
+Check `validation/case_summary.csv` for pass/fail by case and
+`validation/comparisons.csv` for errors by statistic family.
+
+## Generating a baseline MATLAB metamer
+
+Run `export_matlab_ps_metamer` in MATLAB on the cluster. By default it
+synthesizes a metamer for `inputs/DSCF4315.tif` and saves the image and
+synthesis metadata in `matlab_metamers/`.
 
 ## Getting the MATLAB version of the code
 
@@ -104,4 +112,4 @@ curl -fL https://www.cns.nyu.edu/pub/eero/colorTextureSynth.tgz -o matlab_ps_cod
 tar -xzf matlab_ps_code/colorTextureSynth.tgz -C matlab_ps_code
 ```
 
-This should download the three dependencies into `plenoptic-experiments/ps_color_matlab_vs_plen/matlab_ps_code`. The MATLAB script `export_matlab_ps.m` adds `matlab_ps_code/` and its subdirectories to the Matlab path automatically.
+This should download the three dependencies into `plenoptic-experiments/ps_color_matlab_vs_plen/matlab_ps_code`. Both MATLAB exporters add `matlab_ps_code/` and its subdirectories to the Matlab path by default.

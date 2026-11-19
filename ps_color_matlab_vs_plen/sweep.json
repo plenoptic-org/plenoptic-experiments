@@ -1,0 +1,6 @@
+{
+  "images": ["DSCF4315", "d30_2089", "d30_2180", "d30_2189"],
+  "n_scales": [1, 2, 4],
+  "n_orientations": [2, 4],
+  "spatial_corr_width": [3, 7]
+}
