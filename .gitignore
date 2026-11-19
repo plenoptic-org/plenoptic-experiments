@@ -72,3 +72,5 @@ disbatch_out/
 *disbatch*sh
 *disbatch*out
 slurm*
+
+hyperparam*.sh
