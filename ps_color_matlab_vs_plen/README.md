@@ -17,10 +17,9 @@ This validation suite has the following components:
 
 - `prepare_texture.py`: Center-crops texture images to 256 x 256 and saves into `inputs/`.
 - `export_matlab_ps.m`: Computes the color statistics of the image, and generates a metamer. Statistics are saved in `matlab_statistics/`, and the metamer in `matlab_metamers/`. Also saves the PCA parameters for exact reproducibility in Python.
-- `compute_stats_plenoptic.py`: Computes the color Portilla-Simoncelli statistics with the new implementation. Provides `compute_color_ps_statistics()`, using the PCA parameters obtained by Matlab for full reproducibility.
 - `synthesize_plenoptic.py`: Synthesize metamers with plenoptic, using the PCA and OPC color transforms and both the default and color-matched initializations. It doesn't do any Matlab matching. Saves the metamers in `plenoptic_metamers/`.
 - `color_test_helpers.py`: Extends plenoptic's (pre PR 482) test helpers with shared grayscale/color normalization functions and a MATLAB color dictionary mapper.
-- `compare_statistics.py`: Loads the saved statistics, calls the conversion helpers, and prints the absolute and relative differences for each statistic family. Saves per-image CSV summaries in `results/`. Always computes fresh plenoptic statistics from the MATLAB reference.
+- `compare_statistics.py`: Loads the saved statistics, calls the conversion helpers, and prints the absolute and relative differences for each statistic family. Saves per-image CSV summaries in `results/`. Computes fresh plenoptic statistics using the MATLAB reference's PCA parameters.
 
 Run the analysis from `ps_color_matlab_vs_plen/`. Prepare the input images,
 set the image name and parameters in `export_matlab_ps.m`, and run it in MATLAB.
