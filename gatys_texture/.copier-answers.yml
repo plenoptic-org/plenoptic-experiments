@@ -1,0 +1,43 @@
+# Changes here will be overwritten by Copier
+_commit: 5c830b3
+_src_path: gh:plenoptic-org/hyperparameter-search-template
+animate: true
+animate_kwargs: '{"included_plots": ["synthesis_imshow", "synthesis_loss", "synthesis_histogram"]}'
+base_out: /mnt/ceph/users/wbroderick/plenoptic_experiments/gatys_metamers/run-4
+cluster_prefix: PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch
+    MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic
+cpu_only: false
+extra_deps:
+- torchvision
+image: images.py
+imshow_kwargs: '{}'
+initial_image: initial_image.py
+loss_function: loss.py
+model: models.py
+optimizer: torch.optim.LBFGS
+optimizer_kwargs: '[{"max_iter": 10, "max_eval": 10, "history_size": 100, "line_search_fn":
+    "strong_wolfe", "lr": 0.5,}, {"max_iter": 10, "max_eval": 10, "history_size":
+    100, "line_search_fn": "strong_wolfe", "lr": 5,}, {"max_iter": 10, "max_eval":
+    10, "history_size": 100, "line_search_fn": "strong_wolfe", "lr": 50,},{"max_iter":
+    3, "max_eval": 3, "history_size": 10, "line_search_fn": "strong_wolfe", "lr":
+    0.5,}, {"max_iter": 3, "max_eval": 3, "history_size": 10, "line_search_fn": "strong_wolfe",
+    "lr": 5,}, {"max_iter": 3, "max_eval": 3, "history_size": 10, "line_search_fn":
+    "strong_wolfe", "lr": 50,}]'
+penalty_function: po.regularize.penalize_range
+penalty_lambda:
+- 0.1
+- 1
+plenoptic_version: deepnet_postproc
+python_command: python
+scheduler: None
+search_params:
+- image
+- model
+- loss_function
+- penalty_function
+- penalty_lambda
+- initial_image
+- optimizer
+- optimizer_kwargs
+status_plot: plot.py
+synthesis_object: Metamer

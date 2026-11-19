@@ -1,0 +1,15 @@
+[project]
+name = ""
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cyclopts",
+    "plenoptic @ git+https://github.com/plenoptic-org/plenoptic.git@deepnet_postproc",
+    "altair",
+    "pandas",
+    "torch",
+    "imageio",
+"torchvision",
+]
+
