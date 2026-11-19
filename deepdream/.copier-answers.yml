@@ -1,0 +1,30 @@
+# Changes here will be overwritten by Copier
+_commit: eacdc62
+_src_path: gh:plenoptic-org/hyperparameter-search-template
+animate: true
+animate_kwargs: '{"included_plots": ["synthesis_imshow", "synthesis_loss", "synthesis_histogram"]}'
+base_out: /mnt/ceph/users/wbroderick/plenoptic_experiments/deepdream_new/run-4
+cluster_prefix: PYTORCH_KERNEL_CACHE_PATH=~/.cache/torch/kernels TORCH_HOME=~/.cache/torch
+    MPLCONFIGDIR=~/.cache/matplotlib PLENOPTIC_CACHE_DIR=~/.cache/plenoptic
+cpu_only: false
+extra_deps:
+- ipython
+- torchvision
+imshow_kwargs: '{}'
+initial_image: initial_images.py
+loss_function: loss.py
+optimizer: torch.optim.Adam
+optimizer_kwargs: '[{''lr'': 0.05}, {''lr'': 0.01}, {''lr'': 0.1}]'
+penalty_lambda:
+- 0.1
+- 0.01
+- 0.001
+plenoptic_version: generic_synthesis
+python_command: python
+scheduler: None
+search_params:
+- loss_function
+- penalty_lambda
+- optimizer_kwargs
+status_plot: plot.py
+synthesis_object: GenericSynthesis
