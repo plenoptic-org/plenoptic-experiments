@@ -82,6 +82,14 @@ Run `export_matlab_ps_metamer` in MATLAB for one baseline metamer per image.
 Run `python synthesize_plenoptic.py` for the four plenoptic transform and
 initialization combinations per image.
 
+## Comparing final metamers
+
+Run `python compare_metamers.py` to score the five saved RGB metamers against
+each target, once with PCA fitted to the target and once with OPC. The script
+writes the unweighted sum of squared errors over each family's non-redundant
+entries to `validation/metamer_errors.csv` and the plots to
+`validation/metamer_errors/`.
+
 ## Loading and converting MATLAB statistics
 
 `matlab_statistics_helpers.py` contains local versions of the helper functions of plenoptic's `tests/test_models.py`.
