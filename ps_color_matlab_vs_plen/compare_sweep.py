@@ -4,11 +4,12 @@ import itertools
 import json
 from pathlib import Path
 
-import imageio.v3 as iio
 import numpy as np
 import torch
 from compare_statistics import compare_color_ps_statistics, write_results
 from matlab_statistics_helpers import load_matlab_statistics
+
+import plenoptic as po
 
 torch.set_num_threads(2)
 atol = 1e-5
@@ -58,7 +59,10 @@ for case in cases:
         case["n_orientations"],
         case["spatial_corr_width"],
     ), f"{case['case_id']}: cached parameters differ; regenerate this reference"
-    assert np.array_equal(matlab["im0"], iio.imread(output_dir / case["image_path"])), (
+    image = po.load_images(output_dir / case["image_path"], as_gray=False)
+    # MATLAB stores the prepared RGB pixels as an H x W x 3 uint8 array.
+    image_uint8 = po.convert_float_to_int(po.to_numpy(image[0].permute(1, 2, 0)))
+    assert np.array_equal(matlab["im0"], image_uint8), (
         f"{case['case_id']}: cached image differs; regenerate this reference"
     )
     rows = compare_color_ps_statistics(matlab, atol=atol, verbose=False)
