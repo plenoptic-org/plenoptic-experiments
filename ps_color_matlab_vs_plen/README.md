@@ -18,7 +18,7 @@ The components needed to **compare the statistics** of MATLAB and plenoptic are 
 
 The components needed to **synthesize metamers** are the following:
 
-- `export_matlab_ps_metamer.m` synthesizes a metamer for one image using baseline MATLAB parameters and saves the metamer and synthesis metadata in `matlab_metamers/`.
+- `export_matlab_ps_metamer.m` synthesizes a metamer for each image using baseline MATLAB parameters and saves the metamer and synthesis metadata in `matlab_metamers/`.
 - `synthesize_plenoptic.py` synthesizes metamers using the PCA and OPC color transforms with both default and color-matched initializations. It saves the outputs in `plenoptic_metamers/`.
 
 ## Preparing input images
@@ -75,11 +75,12 @@ single scale). The CSV includes `atol` and per-family `status` columns. The
 command writes the report and exits with status 1 if any family fails, or 0
 if all pass.
 
-## Generating a baseline MATLAB metamer
+## Synthesizing metamers
 
-Run `export_matlab_ps_metamer` in MATLAB on the cluster. By default it
-synthesizes a metamer for `inputs/DSCF4315.tif` and saves the image and
-synthesis metadata in `matlab_metamers/`.
+Both scripts use the image names in `sweep.json` with fixed synthesis settings.
+Run `export_matlab_ps_metamer` in MATLAB for one baseline metamer per image.
+Run `python synthesize_plenoptic.py` for the four plenoptic transform and
+initialization combinations per image.
 
 ## Loading and converting MATLAB statistics
 
