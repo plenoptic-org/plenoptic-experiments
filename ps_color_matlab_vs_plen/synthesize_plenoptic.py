@@ -1,3 +1,5 @@
+"""Synthesize plenoptic color PS metamers for each image in sweep.json."""
+
 import json
 from pathlib import Path
 
@@ -6,10 +8,6 @@ import numpy as np
 import torch
 
 import plenoptic as po
-
-sweep = json.loads(Path("sweep.json").read_text())
-metamer_dir = Path("plenoptic_metamers")
-metamer_dir.mkdir(exist_ok=True)
 
 # Synthesis settings
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -49,61 +47,66 @@ optimizer_kwargs = {
     "lr": 1,
 }
 
-for image_name in sweep["images"]:
-    image_path = Path("inputs") / f"{image_name}.tif"
-    # Load the image in the 0--1 range expected by plenoptic
-    image = po.load_images(image_path, as_gray=False).to(device=device, dtype=dtype)
+if __name__ == "__main__":
+    sweep = json.loads(Path("sweep.json").read_text())
+    metamer_dir = Path("plenoptic_metamers")
+    metamer_dir.mkdir(exist_ok=True)
 
-    # Set up both color transforms and the two initialization conditions
-    transforms = {
-        "pca": po.process.PCA(image, max_relative_scaling=float("inf")),
-        "opc": po.process.OPC(),
-    }
-    initial_images = {
-        "default": None,
-        "color_matched": color_matched_noise(image),
-    }
+    for image_name in sweep["images"]:
+        image_path = Path("inputs") / f"{image_name}.tif"
+        # Load the image in the 0--1 range expected by plenoptic
+        image = po.load_images(image_path, as_gray=False).to(device=device, dtype=dtype)
 
-    # Synthesize and save one metamer for each transform and initialization
-    for color_space, transform in transforms.items():
-        model = po.models.PortillaSimoncelli(
-            image.shape[-2:],
-            n_scales=4,
-            n_orientations=4,
-            spatial_corr_width=7,
-            color_statistics=True,
-            transform=transform,
-        ).to(device=device, dtype=dtype)
-        model.eval()
-        po.remove_grad(model)
+        # Set up both color transforms and the two initialization conditions
+        transforms = {
+            "pca": po.process.PCA(image, max_relative_scaling=float("inf")),
+            "opc": po.process.OPC(),
+        }
+        initial_images = {
+            "default": None,
+            "color_matched": color_matched_noise(image),
+        }
 
-        loss = po.loss.portilla_simoncelli_loss_factory(model, image)
-        for initialization, initial_image in initial_images.items():
-            po.set_seed(seed)
-            metamer = po.Metamer(image, model, loss_function=loss)
-            metamer.setup(
-                initial_image=initial_image,
-                optimizer=torch.optim.LBFGS,
-                optimizer_kwargs=optimizer_kwargs,
-            )
-            metamer.synthesize(max_iter=n_synthesis_iterations)
+        # Synthesize and save one metamer for each transform and initialization
+        for color_space, transform in transforms.items():
+            model = po.models.PortillaSimoncelli(
+                image.shape[-2:],
+                n_scales=4,
+                n_orientations=4,
+                spatial_corr_width=7,
+                color_statistics=True,
+                transform=transform,
+            ).to(device=device, dtype=dtype)
+            model.eval()
+            po.remove_grad(model)
 
-            metamer_array = po.to_numpy(metamer.metamer.squeeze(0).permute(1, 2, 0))
-            metamer_uint8 = po.convert_float_to_int(np.clip(metamer_array, 0, 1))
-            metamer_path = (
-                metamer_dir
-                / f"plenoptic_{color_space}_{initialization}_{image_name}.tif"
-            )
-            iio.imwrite(metamer_path, metamer_uint8)
-            print(
-                f"Saved {color_space.upper()} {initialization} plenoptic metamer "
-                f"to {metamer_path}"
-            )
+            loss = po.loss.portilla_simoncelli_loss_factory(model, image)
+            for initialization, initial_image in initial_images.items():
+                po.set_seed(seed)
+                metamer = po.Metamer(image, model, loss_function=loss)
+                metamer.setup(
+                    initial_image=initial_image,
+                    optimizer=torch.optim.LBFGS,
+                    optimizer_kwargs=optimizer_kwargs,
+                )
+                metamer.synthesize(max_iter=n_synthesis_iterations)
 
-            del metamer
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+                metamer_array = po.to_numpy(metamer.metamer.squeeze(0).permute(1, 2, 0))
+                metamer_uint8 = po.convert_float_to_int(np.clip(metamer_array, 0, 1))
+                metamer_path = (
+                    metamer_dir
+                    / f"plenoptic_{color_space}_{initialization}_{image_name}.tif"
+                )
+                iio.imwrite(metamer_path, metamer_uint8)
+                print(
+                    f"Saved {color_space.upper()} {initialization} plenoptic metamer "
+                    f"to {metamer_path}"
+                )
 
-        del model, loss
+                del metamer
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-print(f"Ran all syntheses on {device} with {dtype}")
+            del model, loss
+
+    print(f"Ran all syntheses on {device} with {dtype}")
