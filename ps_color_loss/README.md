@@ -32,3 +32,15 @@ noise (`color_matched`). It saves them in `metamers/`.
 ```sh
 python synthesize.py
 ```
+
+## Analyzing metamers
+
+`analyze.py` compares the RGB mean and covariance of the target, the MATLAB
+metamer and each plenoptic metamer. For each, it reports the channel means, the
+largest absolute difference from the target channel means, and the RGB
+covariance error relative to the target's. It saves them in
+`results/color_metrics.csv`.
+
+```sh
+python analyze.py
+```
