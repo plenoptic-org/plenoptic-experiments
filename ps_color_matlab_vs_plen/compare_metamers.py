@@ -48,8 +48,8 @@ def plot_errors(rows, image, basis, labels, conditions, limits, linear_threshold
     """Plot one evaluation basis with the same scale and ordering in every figure."""
     fig, ax = plt.subplots(figsize=(11, 8), layout="constrained")
     positions = np.arange(len(labels))
-    markers = ["o", "s", "^", "D", "v"]
-    for index, (condition, marker) in enumerate(zip(conditions, markers, strict=True)):
+    markers = ["o", "s", "^", "D", "v", "P", "X"]
+    for index, condition in enumerate(conditions):
         errors = {
             row["statistic_family"]: row["sse"]
             for row in rows
@@ -57,9 +57,9 @@ def plot_errors(rows, image, basis, labels, conditions, limits, linear_threshold
         }
         ax.scatter(
             [errors[name] for name in labels],
-            positions + (index - 2) * 0.065,
+            positions + (index - (len(conditions) - 1) / 2) * 0.065,
             label=condition,
-            marker=marker,
+            marker=markers[index],
             s=24,
             zorder=3,
         )
