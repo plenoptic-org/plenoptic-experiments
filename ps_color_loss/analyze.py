@@ -24,7 +24,10 @@ conditions = [
     "mean_weight_250",
     "mean_weight_1000",
 ]
-results_dir = Path("results")
+# Color transform used during synthesis, "pca" or "opc". Evaluation always uses PCA
+color_transform = "pca"
+metamer_dir = Path("metamers") / color_transform
+results_dir = Path("results") / color_transform
 
 
 def rgb_mean_and_covariance(image):
@@ -46,7 +49,7 @@ for image_name in image_names:
         "matlab": validation_dir / "matlab_metamers" / f"matlab_{image_name}.tif",
     }
     for condition in conditions:
-        paths[condition] = Path("metamers") / f"{condition}_{image_name}.tif"
+        paths[condition] = metamer_dir / f"{condition}_{image_name}.tif"
     images = {
         name: po.load_images(path, as_gray=False).double()
         for name, path in paths.items()

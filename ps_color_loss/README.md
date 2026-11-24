@@ -25,8 +25,10 @@ input images and synthesize the MATLAB metamers there first:
 
 ## Synthesizing metamers
 
-`synthesize.py` synthesizes a metamer for each image with the PCA transform and
-the following conditions. It saves them in `metamers/`.
+`synthesize.py` synthesizes a metamer for each image with the following
+conditions. The `color_transform` variable at the top of the script chooses the
+color transform of the model, `"pca"` or `"opc"`. It saves the metamers in
+`metamers/{color_transform}/`.
 
 - `uniform`: uniform noise initialization and default loss.
 - `color_matched`: color-matched noise initialization and default loss.
@@ -41,7 +43,9 @@ python synthesize.py
 ## Analyzing metamers
 
 `analyze.py` compares the MATLAB metamer and each plenoptic metamer with the
-target, and saves the following in `results/`:
+target. Set its `color_transform` variable to the one used for synthesis. The
+statistics are always evaluated with the target's PCA transform. It saves the
+following in `results/{color_transform}/`:
 
 - `color_metrics.csv`: the channel means, the largest absolute difference from
   the target channel means, and the RGB covariance error relative to the

@@ -24,22 +24,28 @@ from synthesize_plenoptic import (  # noqa: E402
 image_names = json.loads((validation_dir / "sweep.json").read_text())["images"]
 n_iterations = 100
 mean_weights = [10, 100, 250, 1000]
-metamer_dir = Path("metamers")
-metamer_dir.mkdir(exist_ok=True)
+# Color transform used by the model during synthesis, "pca" or "opc"
+color_transform = "pca"
+metamer_dir = Path("metamers") / color_transform
+metamer_dir.mkdir(parents=True, exist_ok=True)
 
 for image_name in image_names:
     # Load the target image in the 0--1 range expected by plenoptic
     image_path = validation_dir / "inputs" / f"{image_name}.tif"
     image = po.load_images(image_path, as_gray=False).to(device=device, dtype=dtype)
 
-    # Set up the model with the PCA transform of the target
+    # Set up the model with the chosen color transform
+    if color_transform == "pca":
+        transform = po.process.PCA(image, max_relative_scaling=float("inf"))
+    else:
+        transform = po.process.OPC()
     model = po.models.PortillaSimoncelli(
         image.shape[-2:],
         n_scales=4,
         n_orientations=4,
         spatial_corr_width=7,
         color_statistics=True,
-        transform=po.process.PCA(image, max_relative_scaling=float("inf")),
+        transform=transform,
     ).to(device=device, dtype=dtype)
     model.eval()
     po.remove_grad(model)
