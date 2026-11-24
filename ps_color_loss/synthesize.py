@@ -1,4 +1,4 @@
-"""Synthesize color PS metamers from uniform and color-matched noise."""
+"""Synthesize color PS metamers from different initializations and losses."""
 
 import json
 import sys
@@ -23,6 +23,7 @@ from synthesize_plenoptic import (  # noqa: E402
 
 image_names = json.loads((validation_dir / "sweep.json").read_text())["images"]
 n_iterations = 100
+mean_weights = [10, 100, 250, 1000]
 metamer_dir = Path("metamers")
 metamer_dir.mkdir(exist_ok=True)
 
@@ -31,7 +32,7 @@ for image_name in image_names:
     image_path = validation_dir / "inputs" / f"{image_name}.tif"
     image = po.load_images(image_path, as_gray=False).to(device=device, dtype=dtype)
 
-    # Set up the model with the PCA transform of the target, and the default loss
+    # Set up the model with the PCA transform of the target
     model = po.models.PortillaSimoncelli(
         image.shape[-2:],
         n_scales=4,
@@ -42,14 +43,27 @@ for image_name in image_names:
     ).to(device=device, dtype=dtype)
     model.eval()
     po.remove_grad(model)
-    loss = po.loss.portilla_simoncelli_loss_factory(model, image)
 
-    # Synthesize from uniform noise (Metamer's default) and color-matched noise
-    initial_images = {
-        "uniform": None,
-        "color_matched": color_matched_noise(image),
+    # Each condition has an initial image and a loss reweighting. Uniform noise
+    # (initial image None) is Metamer's default, and reweighting None the default loss
+    conditions = {
+        "uniform": (None, None),
+        "color_matched": (color_matched_noise(image), None),
     }
-    for condition, initial_image in initial_images.items():
+    # Weight the RGB means more. Like the default loss, leave min/max out and
+    # weight the highpass variance 100 times.
+    # Pixel statistics are mean, variance, skew, kurtosis, min and max
+    for mean_weight in mean_weights:
+        pixel_weights = torch.tensor(
+            [mean_weight, 1, 1, 1, 0, 0], dtype=dtype, device=device
+        )
+        conditions[f"mean_weight_{mean_weight}"] = (
+            None,
+            {"pixel_statistics": pixel_weights, "var_highpass_residual": 100},
+        )
+
+    for condition, (initial_image, reweighting_dict) in conditions.items():
+        loss = po.loss.portilla_simoncelli_loss_factory(model, image, reweighting_dict)
         po.set_seed(seed)
         metamer = po.Metamer(image, model, loss_function=loss)
         metamer.setup(

@@ -14,7 +14,14 @@ sys.path.append(str(validation_dir))
 from compare_statistics import write_results  # noqa: E402
 
 image_names = json.loads((validation_dir / "sweep.json").read_text())["images"]
-conditions = ["uniform", "color_matched"]
+conditions = [
+    "uniform",
+    "color_matched",
+    "mean_weight_10",
+    "mean_weight_100",
+    "mean_weight_250",
+    "mean_weight_1000",
+]
 
 
 def rgb_mean_and_covariance(path):

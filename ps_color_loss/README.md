@@ -26,8 +26,13 @@ input images and synthesize the MATLAB metamers there first:
 ## Synthesizing metamers
 
 `synthesize.py` synthesizes a metamer for each image with the PCA transform and
-the default loss, starting from uniform noise (`uniform`) and from color-matched
-noise (`color_matched`). It saves them in `metamers/`.
+the following conditions. It saves them in `metamers/`.
+
+- `uniform`: uniform noise initialization and default loss.
+- `color_matched`: color-matched noise initialization and default loss.
+- `mean_weight_{10,100,250,1000}`: uniform noise initialization, and the RGB
+  means weighted 10, 100, 250 or 1000 times in the loss, through the
+  `reweighting_dict` argument of `po.loss.portilla_simoncelli_loss_factory`.
 
 ```sh
 python synthesize.py
