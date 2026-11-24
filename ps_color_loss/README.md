@@ -40,11 +40,15 @@ python synthesize.py
 
 ## Analyzing metamers
 
-`analyze.py` compares the RGB mean and covariance of the target, the MATLAB
-metamer and each plenoptic metamer. For each, it reports the channel means, the
-largest absolute difference from the target channel means, and the RGB
-covariance error relative to the target's. It saves them in
-`results/color_metrics.csv`.
+`analyze.py` compares the MATLAB metamer and each plenoptic metamer with the
+target, and saves the following in `results/`:
+
+- `color_metrics.csv`: the channel means, the largest absolute difference from
+  the target channel means, and the RGB covariance error relative to the
+  target's.
+- `family_errors.csv` and `family_errors_{image}.png`: the sum of squared errors
+  of each PS statistic family, computed with the target's PCA transform.
+- `metamers.png`: the target and all metamers of each image.
 
 ```sh
 python analyze.py
